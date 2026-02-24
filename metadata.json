@@ -1,0 +1,8 @@
+{
+  "Name": "Velocity Guard",
+  "Owner": "Enclosed",
+  "Description": "Velocity-Adaptive Dead Zone filter for OpenTabletDriver. Suppresses pen chatter at rest while passing fast movements through with zero latency.",
+  "PluginVersion": "1.0.0",
+  "SupportedDriverVersion": "0.6.6.0",
+  "LicenseIdentifier": "GPL-3.0-only"
+}

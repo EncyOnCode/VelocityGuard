@@ -1,0 +1,17 @@
+# Build artifacts
+bin/
+obj/
+
+# IDE
+.idea/
+.vs/
+*.user
+*.suo
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Temp
+*.txt
