@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VelocityGuard — Settings Calculator</title>
+    <meta name="description"
+        content="Calculate optimal VelocityGuard filter settings for your tablet area and playstyle. Velocity-adaptive dead zone filter for OpenTabletDriver.">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%230d1117'/><text x='16' y='22' text-anchor='middle' fill='%230bd8b6' font-size='18' font-weight='bold'>V</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        /* ═══ RESET & VARIABLES ═══════════════════════════════════════════════ */
+        :root {
+            --bg: #080b10;
+            --surface: #0d1117;
+            --elevated: #151b23;
+            --border: #1c2633;
+            --border-accent: rgba(11, 216, 182, 0.2);
+            --text: #e2e8f0;
+            --text-muted: #5e7082;
+            --accent: #0bd8b6;
+            --accent-dim: rgba(11, 216, 182, 0.08);
+            --accent-glow: rgba(11, 216, 182, 0.2);
+            --amber: #d4a017;
+            --red: #d44040;
+            --mono: 'JetBrains Mono', monospace;
+            --sans: 'Manrope', sans-serif;
+            --radius: 6px;
+        }
+
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            font-size: 15px;
+            line-height: 1.6;
+            background-image:
+                linear-gradient(rgba(11, 216, 182, 0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(11, 216, 182, 0.025) 1px, transparent 1px);
+            background-size: 28px 28px;
+            min-height: 100vh;
+        }
+
+        /* ═══ HEADER ══════════════════════════════════════════════════════════ */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(8, 11, 16, 0.92);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--mono);
+            font-weight: 700;
+            font-size: 16px;
+            letter-spacing: 0.5px;
+        }
+
+        .logo-mark {
+            color: var(--accent);
+            font-size: 20px;
+        }
+
+        .logo-accent {
+            color: var(--accent);
+        }
+
+        .logo-ver {
+            font-size: 11px;
+            font-weight: 400;
+            color: var(--text-muted);
+            margin-left: 6px;
+        }
+
+        nav {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        nav a {
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        nav a:hover {
+            color: var(--accent);
+        }
+
+        .gh-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .gh-link:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* ═══ LAYOUT ══════════════════════════════════════════════════════════ */
+        main {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 24px 80px;
+        }
+
+        .hero {
+            padding: 48px 0 40px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-family: var(--mono);
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--accent);
+            margin-bottom: 12px;
+        }
+
+        .hero p {
+            font-size: 16px;
+            color: var(--text-muted);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* ═══ SECTION LABELS ═════════════════════════════════════════════════ */
+        .section-label {
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2.5px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ═══ PANELS ══════════════════════════════════════════════════════════ */
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+        }
+
+        .panel-title {
+            font-family: var(--mono);
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text);
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* ═══ CALCULATOR GRID ════════════════════════════════════════════════ */
+        .calc-section {
+            margin-bottom: 48px;
+        }
+
+        .calc-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        /* ── Input Panel ─── */
+        .input-group {
+            margin-bottom: 22px;
+        }
+
+        .input-group label {
+            display: block;
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .area-inputs {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .area-field {
+            position: relative;
+            flex: 1;
+        }
+
+        .area-field input {
+            width: 100%;
+            background: var(--elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 16px;
+            font-weight: 600;
+            padding: 10px 36px 10px 14px;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+
+        .area-field input:focus {
+            border-color: var(--accent);
+        }
+
+        .area-field .unit {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        .separator {
+            font-family: var(--mono);
+            font-size: 16px;
+            color: var(--text-muted);
+        }
+
+        /* ── Toggle Buttons ─── */
+        .btn-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 9px 14px;
+            background: var(--elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text-muted);
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .toggle-btn:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .toggle-btn.active {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* ── Buttons ─── */
+        .primary-btn {
+            width: 100%;
+            padding: 13px 24px;
+            background: var(--accent);
+            border: none;
+            border-radius: var(--radius);
+            color: #080b10;
+            font-family: var(--mono);
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .primary-btn:hover {
+            filter: brightness(1.15);
+            transform: translateY(-1px);
+        }
+
+        .primary-btn:active {
+            transform: translateY(0);
+        }
+
+        .primary-btn.flash {
+            animation: btn-flash 0.4s ease-out;
+        }
+
+        @keyframes btn-flash {
+            0% {
+                box-shadow: 0 0 0 0 rgba(11, 216, 182, 0.5);
+            }
+
+            100% {
+                box-shadow: 0 0 0 12px rgba(11, 216, 182, 0);
+            }
+        }
+
+        .secondary-btn {
+            width: 100%;
+            padding: 11px 24px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text-muted);
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 12px;
+        }
+
+        .secondary-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .secondary-btn.copied {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* ═══ SLIDERS ═════════════════════════════════════════════════════════ */
+        .slider-group {
+            margin-bottom: 18px;
+        }
+
+        .slider-header {
+            display: flex;
+            align-items: baseline;
+            margin-bottom: 6px;
+        }
+
+        .slider-header label {
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text);
+            flex: 1;
+        }
+
+        .slider-value {
+            font-family: var(--mono);
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--accent);
+            min-width: 40px;
+            text-align: right;
+        }
+
+        .slider-unit {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-left: 4px;
+            min-width: 32px;
+        }
+
+        /* ── Range Input Styling ─── */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--border);
+            outline: none;
+            cursor: pointer;
+            position: relative;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: 2px solid var(--bg);
+            cursor: pointer;
+            transition: box-shadow 0.15s;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            box-shadow: 0 0 0 4px var(--accent-glow);
+        }
+
+        input[type=range]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: 2px solid var(--bg);
+            cursor: pointer;
+        }
+
+        input[type=range]::-moz-range-track {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--border);
+        }
+
+        input[type=range]::-moz-range-progress {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--accent);
+        }
+
+        /* ═══ VISUALIZATION ══════════════════════════════════════════════════ */
+        .viz-section {
+            margin-bottom: 48px;
+        }
+
+        .viz-panel {
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .viz-stats {
+            display: flex;
+            padding: 16px 24px;
+            gap: 32px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .viz-stat {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+
+        .stat-label {
+            font-family: var(--mono);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        .stat-value {
+            font-family: var(--mono);
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+            min-width: 48px;
+        }
+
+        .stat-unit {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        #viz-state {
+            color: var(--accent);
+        }
+
+        canvas {
+            width: 100%;
+            height: 420px;
+            display: block;
+            cursor: crosshair;
+        }
+
+        .viz-hint {
+            padding: 10px 24px;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-muted);
+            text-align: center;
+            border-top: 1px solid var(--border);
+            background: var(--elevated);
+        }
+
+        /* ═══ REFERENCE CARDS ════════════════════════════════════════════════ */
+        .ref-section {
+            margin-bottom: 48px;
+        }
+
+        .ref-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 12px;
+        }
+
+        .ref-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            transition: border-color 0.2s;
+        }
+
+        .ref-card:hover {
+            border-color: var(--border-accent);
+        }
+
+        .ref-card .ref-problem {
+            font-family: var(--mono);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .ref-card .ref-arrow {
+            font-family: var(--mono);
+            color: var(--accent);
+            margin-right: 4px;
+        }
+
+        .ref-card .ref-solution {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* ═══ FOOTER ══════════════════════════════════════════════════════════ */
+        footer {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        footer span {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        footer a {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        footer a:hover {
+            color: var(--accent);
+        }
+
+        /* ═══ ANIMATIONS ═════════════════════════════════════════════════════ */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(12px);
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ═══ RESPONSIVE ═════════════════════════════════════════════════════ */
+        @media (max-width: 768px) {
+            .calc-grid {
+                grid-template-columns: 1fr;
+            }
+
+            nav {
+                display: none;
+            }
+
+            .hero {
+                padding: 32px 0 28px;
+            }
+
+            .header-inner {
+                height: 48px;
+            }
+
+            canvas {
+                height: 280px;
+            }
+
+            .viz-stats {
+                gap: 16px;
+            }
+
+            .ref-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            main {
+                padding: 0 12px 60px;
+            }
+
+            .panel {
+                padding: 20px 16px;
+            }
+
+            canvas {
+                height: 220px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ═══ HEADER ═══ -->
+    <header>
+        <div class="header-inner">
+            <div class="logo">
+                <span class="logo-mark">▸</span>
+                <span>VELOCITY<span class="logo-accent">GUARD</span></span>
+                <span class="logo-ver">v1.0</span>
+            </div>
+            <nav>
+                <a href="#calculator">Calculator</a>
+                <a href="#viz">Visualization</a>
+                <a href="#reference">Reference</a>
+                <a href="https://github.com/EncyOnCode/VelocityGuard" target="_blank" rel="noopener"
+                    class="gh-link">GitHub ↗</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <!-- ═══ HERO ═══ -->
+        <div class="hero fade-in">
+            <h1>Settings Calculator</h1>
+            <p>Calculate optimal filter parameters for your tablet area and playstyle</p>
+        </div>
+
+        <!-- ═══ CALCULATOR ═══ -->
+        <section class="calc-section fade-in" style="animation-delay:0.1s" id="calculator">
+            <div class="section-label">SETTINGS CALCULATOR</div>
+            <div class="calc-grid">
+
+                <!-- Left: Inputs -->
+                <div class="panel">
+                    <div class="panel-title">Input</div>
+
+                    <div class="input-group">
+                        <label>Tablet Area</label>
+                        <div class="area-inputs">
+                            <div class="area-field">
+                                <input type="number" id="area-w" value="66" min="10" max="300" step="1">
+                                <span class="unit">mm</span>
+                            </div>
+                            <span class="separator">×</span>
+                            <div class="area-field">
+                                <input type="number" id="area-h" value="41" min="10" max="200" step="1">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Playstyle</label>
+                        <div class="btn-group" id="playstyle-group">
+                            <button class="toggle-btn" data-val="jump">Jump</button>
+                            <button class="toggle-btn" data-val="stream">Stream</button>
+                            <button class="toggle-btn active" data-val="allround">All-round</button>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Chatter Severity</label>
+                        <div class="btn-group" id="chatter-group">
+                            <button class="toggle-btn" data-val="low">Low</button>
+                            <button class="toggle-btn active" data-val="medium">Med</button>
+                            <button class="toggle-btn" data-val="high">High</button>
+                        </div>
+                    </div>
+
+                    <button id="calc-btn" class="primary-btn">CALCULATE</button>
+                </div>
+
+                <!-- Right: Sliders -->
+                <div class="panel">
+                    <div class="panel-title">Parameters</div>
+
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <label>Max Dead Zone</label>
+                            <span class="slider-value" id="v-mdz">4.0</span>
+                            <span class="slider-unit">px</span>
+                        </div>
+                        <input type="range" id="s-mdz" min="0" max="20" step="0.1" value="4">
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <label>Full Speed Threshold</label>
+                            <span class="slider-value" id="v-fst">12.0</span>
+                            <span class="slider-unit">px/ms</span>
+                        </div>
+                        <input type="range" id="s-fst" min="1" max="50" step="0.1" value="12">
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <label>Curve</label>
+                            <span class="slider-value" id="v-crv">1.0</span>
+                            <span class="slider-unit"></span>
+                        </div>
+                        <input type="range" id="s-crv" min="0.1" max="3" step="0.1" value="1">
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <label>Speed Smooth</label>
+                            <span class="slider-value" id="v-ssm">0.5</span>
+                            <span class="slider-unit">α</span>
+                        </div>
+                        <input type="range" id="s-ssm" min="0" max="1" step="0.01" value="0.5">
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <label>Smooth Factor</label>
+                            <span class="slider-value" id="v-sfr">0.8</span>
+                            <span class="slider-unit"></span>
+                        </div>
+                        <input type="range" id="s-sfr" min="0" max="1" step="0.01" value="0.8">
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <label>Prediction</label>
+                            <span class="slider-value" id="v-prd">0.0</span>
+                            <span class="slider-unit"></span>
+                        </div>
+                        <input type="range" id="s-prd" min="0" max="2" step="0.1" value="0">
+                    </div>
+
+                    <button id="copy-btn" class="secondary-btn">COPY SETTINGS</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ VISUALIZATION ═══ -->
+        <section class="viz-section fade-in" style="animation-delay:0.2s" id="viz">
+            <div class="section-label">LIVE PREVIEW</div>
+            <div class="panel viz-panel">
+                <div class="viz-stats">
+                    <div class="viz-stat">
+                        <span class="stat-label">Speed</span>
+                        <span class="stat-value" id="viz-speed">0.0</span>
+                        <span class="stat-unit">px/ms</span>
+                    </div>
+                    <div class="viz-stat">
+                        <span class="stat-label">Dead Zone</span>
+                        <span class="stat-value" id="viz-dz">4.0</span>
+                        <span class="stat-unit">px</span>
+                    </div>
+                    <div class="viz-stat">
+                        <span class="stat-label">State</span>
+                        <span class="stat-value" id="viz-state">IDLE</span>
+                    </div>
+                </div>
+                <canvas id="canvas"></canvas>
+                <p class="viz-hint">Move your cursor over the canvas to see the filter in action</p>
+            </div>
+        </section>
+
+        <!-- ═══ REFERENCE ═══ -->
+        <section class="ref-section fade-in" style="animation-delay:0.3s" id="reference">
+            <div class="section-label">TUNING REFERENCE</div>
+            <div class="ref-grid">
+                <div class="ref-card">
+                    <div class="ref-problem"><span class="ref-arrow">→</span> More chatter?</div>
+                    <div class="ref-solution">Increase <strong>Max Dead Zone</strong> to 5–8 px</div>
+                </div>
+                <div class="ref-card">
+                    <div class="ref-problem"><span class="ref-arrow">→</span> Slow aim feels sticky?</div>
+                    <div class="ref-solution">Decrease <strong>Max Dead Zone</strong> to 2–3 px</div>
+                </div>
+                <div class="ref-card">
+                    <div class="ref-problem"><span class="ref-arrow">→</span> Jumps feel filtered?</div>
+                    <div class="ref-solution">Decrease <strong>Full Speed Threshold</strong> to 6–8 px/ms</div>
+                </div>
+                <div class="ref-card">
+                    <div class="ref-problem"><span class="ref-arrow">→</span> Want snappier response?</div>
+                    <div class="ref-solution">Decrease <strong>Curve</strong> to 0.4–0.7</div>
+                </div>
+                <div class="ref-card">
+                    <div class="ref-problem"><span class="ref-arrow">→</span> Want silky slow aim?</div>
+                    <div class="ref-solution">Decrease <strong>Smooth Factor</strong> to 0.5–0.7</div>
+                </div>
+                <div class="ref-card">
+                    <div class="ref-problem"><span class="ref-arrow">→</span> Cursor lags behind?</div>
+                    <div class="ref-solution">Increase <strong>Speed Smooth</strong> towards 1.0 (raw speed, less EMA)
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ═══ FOOTER ═══ -->
+    <footer>
+        <span>VelocityGuard · GPL-3.0 · OpenTabletDriver Plugin</span>
+        <a href="https://github.com/EncyOnCode/VelocityGuard" target="_blank"
+            rel="noopener">github.com/EncyOnCode/VelocityGuard</a>
+    </footer>
+
+    <!-- ═══ JAVASCRIPT ═══ -->
+    <script>
+        /* ── DOM References ────────────────────────────────────────────── */
+        const $ = id => document.getElementById(id);
+
+        const sliders = {
+            mdz: { el: $('s-mdz'), val: $('v-mdz'), key: 'maxDeadZone' },
+            fst: { el: $('s-fst'), val: $('v-fst'), key: 'fullSpeedThreshold' },
+            crv: { el: $('s-crv'), val: $('v-crv'), key: 'curve' },
+            ssm: { el: $('s-ssm'), val: $('v-ssm'), key: 'speedSmooth' },
+            sfr: { el: $('s-sfr'), val: $('v-sfr'), key: 'smoothFactor' },
+            prd: { el: $('s-prd'), val: $('v-prd'), key: 'prediction' }
+        };
+
+        /* ── Current Parameters ────────────────────────────────────────── */
+        function getParams() {
+            return {
+                maxDeadZone: parseFloat(sliders.mdz.el.value),
+                fullSpeedThreshold: parseFloat(sliders.fst.el.value),
+                curve: parseFloat(sliders.crv.el.value),
+                speedSmooth: parseFloat(sliders.ssm.el.value),
+                smoothFactor: parseFloat(sliders.sfr.el.value),
+                prediction: parseFloat(sliders.prd.el.value)
+            };
+        }
+
+        /* ── Slider Updates ────────────────────────────────────────────── */
+        function updateSliderFill(slider) {
+            const min = parseFloat(slider.min);
+            const max = parseFloat(slider.max);
+            const val = parseFloat(slider.value);
+            const pct = ((val - min) / (max - min)) * 100;
+            const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+            const border = getComputedStyle(document.documentElement).getPropertyValue('--border').trim();
+            slider.style.background = `linear-gradient(to right, ${accent} 0%, ${accent} ${pct}%, ${border} ${pct}%, ${border} 100%)`;
+        }
+
+        Object.values(sliders).forEach(s => {
+            const handler = () => {
+                const decimals = s.el.step.includes('.') ? s.el.step.split('.')[1].length : 0;
+                s.val.textContent = parseFloat(s.el.value).toFixed(Math.min(decimals, 1));
+                updateSliderFill(s.el);
+            };
+            s.el.addEventListener('input', handler);
+            handler(); // init
+        });
+
+        /* ── Toggle Button Groups ──────────────────────────────────────── */
+        function getActive(groupId) {
+            return document.querySelector(`#${groupId} .toggle-btn.active`)?.dataset.val || '';
+        }
+
+        document.querySelectorAll('.btn-group').forEach(group => {
+            group.addEventListener('click', e => {
+                const btn = e.target.closest('.toggle-btn');
+                if (!btn) return;
+                group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+
+        /* ── Calculator Logic ──────────────────────────────────────────── */
+        function calculate() {
+            const w = parseFloat($('area-w').value) || 66;
+            const h = parseFloat($('area-h').value) || 41;
+            const play = getActive('playstyle-group');
+            const chatter = getActive('chatter-group');
+
+            const refArea = 66 * 41;
+            const areaScale = Math.sqrt((w * h) / refArea);
+
+            // Chatter multiplier
+            const chatterMul = { low: 0.6, medium: 1.0, high: 1.5 }[chatter] || 1;
+
+            // Base presets by playstyle
+            let base;
+            switch (play) {
+                case 'jump':
+                    base = { mdz: 3, fst: 6, crv: 0.6, ssm: 0.6, sfr: 0.9, prd: 0.0 };
+                    break;
+                case 'stream':
+                    base = { mdz: 5, fst: 15, crv: 1.2, ssm: 0.4, sfr: 0.6, prd: 0.0 };
+                    break;
+                default: // allround
+                    base = { mdz: 4, fst: 12, crv: 1.0, ssm: 0.5, sfr: 0.8, prd: 0.0 };
+            }
+
+            // Scale by area and chatter
+            const result = {
+                mdz: clamp(round1(base.mdz * areaScale * chatterMul), 0, 20),
+                fst: clamp(round1(base.fst * areaScale), 1, 50),
+                crv: clamp(round1(base.crv), 0.1, 3),
+                ssm: clamp(round2(base.ssm), 0, 1),
+                sfr: clamp(round2(base.sfr), 0, 1),
+                prd: clamp(round1(base.prd), 0, 2)
+            };
+
+            // Animate sliders
+            setSlider('mdz', result.mdz);
+            setSlider('fst', result.fst);
+            setSlider('crv', result.crv);
+            setSlider('ssm', result.ssm);
+            setSlider('sfr', result.sfr);
+            setSlider('prd', result.prd);
+
+            // Button flash
+            const btn = $('calc-btn');
+            btn.classList.remove('flash');
+            void btn.offsetWidth;
+            btn.classList.add('flash');
+        }
+
+        function setSlider(key, value) {
+            const s = sliders[key];
+            s.el.value = value;
+            const decimals = s.el.step.includes('.') ? s.el.step.split('.')[1].length : 0;
+            s.val.textContent = value.toFixed(Math.min(decimals, 1));
+            updateSliderFill(s.el);
+        }
+
+        function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+        function round1(v) { return Math.round(v * 10) / 10; }
+        function round2(v) { return Math.round(v * 100) / 100; }
+
+        $('calc-btn').addEventListener('click', calculate);
+
+        /* ── Copy Settings ─────────────────────────────────────────────── */
+        $('copy-btn').addEventListener('click', () => {
+            const p = getParams();
+            const text = [
+                `Max Dead Zone: ${p.maxDeadZone}`,
+                `Full Speed Threshold: ${p.fullSpeedThreshold}`,
+                `Curve: ${p.curve}`,
+                `Speed Smooth: ${p.speedSmooth}`,
+                `Smooth Factor: ${p.smoothFactor}`,
+                `Prediction: ${p.prediction}`
+            ].join('\n');
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = $('copy-btn');
+                btn.textContent = '✓ COPIED';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = 'COPY SETTINGS';
+                    btn.classList.remove('copied');
+                }, 1500);
+            });
+        });
+
+        /* ═══ VISUALIZATION ══════════════════════════════════════════════ */
+        const canvas = $('canvas');
+        const ctx = canvas.getContext('2d');
+        const DZ_SCALE = 6; // visual scale factor for dead zone circle
+
+        // Filter state
+        let lastOutput = null;
+        let lastInput = null;
+        let lastTime = 0;
+        let smoothSpeed = 0;
+        let mouseOnCanvas = false;
+        let rawTrail = [];
+        let filtTrail = [];
+        const TRAIL_LEN = 40;
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Mouse tracking
+        let mouseX = 0, mouseY = 0;
+
+        canvas.addEventListener('mouseenter', () => {
+            mouseOnCanvas = true;
+            lastOutput = null;
+            lastInput = null;
+            lastTime = 0;
+            smoothSpeed = 0;
+            rawTrail = [];
+            filtTrail = [];
+        });
+        canvas.addEventListener('mouseleave', () => { mouseOnCanvas = false; });
+        canvas.addEventListener('mousemove', e => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+        // Touch support
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            mouseOnCanvas = true;
+            lastOutput = null; lastInput = null; lastTime = 0; smoothSpeed = 0;
+            rawTrail = []; filtTrail = [];
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            mouseX = touch.clientX - rect.left;
+            mouseY = touch.clientY - rect.top;
+        }, { passive: false });
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            mouseX = touch.clientX - rect.left;
+            mouseY = touch.clientY - rect.top;
+        }, { passive: false });
+        canvas.addEventListener('touchend', () => { mouseOnCanvas = false; });
+
+        /* ── VelocityGuard Filter (JS port) ─── */
+        function applyFilter(input, now) {
+            const p = getParams();
+
+            if (!lastOutput) {
+                lastOutput = { x: input.x, y: input.y };
+                lastInput = { x: input.x, y: input.y };
+                lastTime = now;
+                return { ...lastOutput };
+            }
+
+            const dt = now - lastTime;
+            lastTime = now;
+            if (dt < 0.001) return { ...lastOutput };
+
+            // Raw speed
+            const dx = input.x - lastInput.x;
+            const dy = input.y - lastInput.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const rawSpeed = dist / dt;
+
+            // EMA smooth
+            const alpha = clamp(p.speedSmooth, 0.001, 1);
+            smoothSpeed = alpha * rawSpeed + (1 - alpha) * smoothSpeed;
+
+            const prevInput = { ...lastInput };
+            lastInput = { x: input.x, y: input.y };
+
+            // Nonlinear dead zone
+            const t = clamp(smoothSpeed / Math.max(p.fullSpeedThreshold, 0.001), 0, 1);
+            const shaped = Math.pow(t, Math.max(p.curve, 0.01));
+            const deadZone = p.maxDeadZone * (1 - shaped);
+
+            // Prediction
+            let effX = input.x, effY = input.y;
+            if (p.prediction > 0 && dt > 0.001) {
+                const pdx = input.x - prevInput.x;
+                const pdy = input.y - prevInput.y;
+                const plen = Math.sqrt(pdx * pdx + pdy * pdy);
+                if (plen > 0.001) {
+                    effX = input.x + (pdx / plen) * p.prediction * smoothSpeed * dt;
+                    effY = input.y + (pdy / plen) * p.prediction * smoothSpeed * dt;
+                }
+            }
+
+            // Dead zone gate
+            const odx = effX - lastOutput.x;
+            const ody = effY - lastOutput.y;
+            const odist = Math.sqrt(odx * odx + ody * ody);
+
+            if (odist > deadZone) {
+                const sf = Math.max(shaped, clamp(p.smoothFactor, 0.01, 1));
+                lastOutput = {
+                    x: lastOutput.x + (effX - lastOutput.x) * sf,
+                    y: lastOutput.y + (effY - lastOutput.y) * sf
+                };
+            }
+
+            return { ...lastOutput, deadZone, speed: smoothSpeed, state: odist > deadZone ? 'TRACKING' : 'LOCKED' };
+        }
+
+        /* ── Render Loop ─── */
+        function draw() {
+            const w = canvas.getBoundingClientRect().width;
+            const h = canvas.getBoundingClientRect().height;
+            ctx.clearRect(0, 0, w, h);
+
+            // Background
+            ctx.fillStyle = '#080b10';
+            ctx.fillRect(0, 0, w, h);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(11, 216, 182, 0.04)';
+            ctx.lineWidth = 0.5;
+            const gs = 28;
+            for (let x = gs; x < w; x += gs) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+            }
+            for (let y = gs; y < h; y += gs) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+            }
+
+            // Center crosshair
+            const cx = w / 2, cy = h / 2;
+            ctx.strokeStyle = 'rgba(11, 216, 182, 0.06)';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke();
+
+            if (!mouseOnCanvas) {
+                // Idle state — show default dead zone at center
+                const p = getParams();
+                const r = p.maxDeadZone * DZ_SCALE;
+
+                // Dead zone circle
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(11, 216, 182, 0.25)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(11, 216, 182, 0.04)';
+                ctx.fill();
+
+                // Center dot
+                ctx.beginPath();
+                ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(11, 216, 182, 0.5)';
+                ctx.fill();
+
+                // Label
+                ctx.fillStyle = 'rgba(11, 216, 182, 0.3)';
+                ctx.font = '11px JetBrains Mono';
+                ctx.textAlign = 'center';
+                ctx.fillText(`Dead Zone: ${p.maxDeadZone.toFixed(1)} px`, cx, cy + r + 20);
+                ctx.fillText('Move cursor here to begin', cx, cy + r + 38);
+
+                $('viz-speed').textContent = '0.0';
+                $('viz-dz').textContent = p.maxDeadZone.toFixed(1);
+                $('viz-state').textContent = 'IDLE';
+
+                requestAnimationFrame(draw);
+                return;
+            }
+
+            // Apply filter
+            const now = performance.now();
+            const result = applyFilter({ x: mouseX, y: mouseY }, now);
+            const dz = result.deadZone !== undefined ? result.deadZone : getParams().maxDeadZone;
+            const speed = result.speed !== undefined ? result.speed : 0;
+            const state = result.state || 'TRACKING';
+
+            // Update HUD
+            $('viz-speed').textContent = speed.toFixed(1);
+            $('viz-dz').textContent = dz.toFixed(1);
+            $('viz-state').textContent = state;
+            $('viz-state').style.color = state === 'LOCKED' ? '#d4a017' : '#0bd8b6';
+
+            // Record trails
+            rawTrail.push({ x: mouseX, y: mouseY });
+            filtTrail.push({ x: result.x, y: result.y });
+            if (rawTrail.length > TRAIL_LEN) rawTrail.shift();
+            if (filtTrail.length > TRAIL_LEN) filtTrail.shift();
+
+            // Draw raw trail
+            for (let i = 1; i < rawTrail.length; i++) {
+                const a = i / rawTrail.length * 0.3;
+                ctx.beginPath();
+                ctx.moveTo(rawTrail[i - 1].x, rawTrail[i - 1].y);
+                ctx.lineTo(rawTrail[i].x, rawTrail[i].y);
+                ctx.strokeStyle = `rgba(226, 232, 240, ${a})`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // Draw filtered trail
+            for (let i = 1; i < filtTrail.length; i++) {
+                const a = i / filtTrail.length * 0.6;
+                ctx.beginPath();
+                ctx.moveTo(filtTrail[i - 1].x, filtTrail[i - 1].y);
+                ctx.lineTo(filtTrail[i].x, filtTrail[i].y);
+                ctx.strokeStyle = `rgba(11, 216, 182, ${a})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            // Dead zone circle
+            const dzR = dz * DZ_SCALE;
+            if (dzR > 0.5) {
+                ctx.beginPath();
+                ctx.arc(result.x, result.y, dzR, 0, Math.PI * 2);
+                ctx.strokeStyle = state === 'LOCKED' ? 'rgba(212, 160, 23, 0.35)' : 'rgba(11, 216, 182, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.fillStyle = state === 'LOCKED' ? 'rgba(212, 160, 23, 0.04)' : 'rgba(11, 216, 182, 0.03)';
+                ctx.fill();
+            }
+
+            // Raw input crosshair
+            ctx.strokeStyle = 'rgba(226, 232, 240, 0.25)';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath(); ctx.moveTo(mouseX - 8, mouseY); ctx.lineTo(mouseX + 8, mouseY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(mouseX, mouseY - 8); ctx.lineTo(mouseX, mouseY + 8); ctx.stroke();
+
+            // Raw dot
+            ctx.beginPath();
+            ctx.arc(mouseX, mouseY, 2, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(226, 232, 240, 0.4)';
+            ctx.fill();
+
+            // Filtered output dot
+            ctx.beginPath();
+            ctx.arc(result.x, result.y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = state === 'LOCKED' ? '#d4a017' : '#0bd8b6';
+            ctx.fill();
+
+            // Glow on filtered dot
+            ctx.beginPath();
+            ctx.arc(result.x, result.y, 8, 0, Math.PI * 2);
+            ctx.fillStyle = state === 'LOCKED' ? 'rgba(212, 160, 23, 0.15)' : 'rgba(11, 216, 182, 0.15)';
+            ctx.fill();
+
+            // Legend
+            ctx.font = '10px JetBrains Mono';
+            ctx.textAlign = 'left';
+            ctx.fillStyle = 'rgba(226, 232, 240, 0.3)';
+            ctx.fillText('○ Raw input', 12, h - 26);
+            ctx.fillStyle = 'rgba(11, 216, 182, 0.5)';
+            ctx.fillText('● Filtered output', 12, h - 12);
+
+            requestAnimationFrame(draw);
+        }
+
+        requestAnimationFrame(draw);
+    </script>
+</body>
+
+</html>
