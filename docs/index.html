@@ -541,6 +541,92 @@
             background: var(--elevated);
         }
 
+        /* ═══ INSTALL SECTION ════════════════════════════════════════════════ */
+        .install-section {
+            margin-bottom: 48px;
+        }
+
+        .install-panel {
+            max-width: 520px;
+        }
+
+        .install-steps {
+            margin-bottom: 24px;
+        }
+
+        .install-steps li {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            margin-left: 18px;
+            line-height: 1.6;
+        }
+
+        .install-steps li strong {
+            color: var(--text);
+        }
+
+        .otd-field {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            transition: border-color 0.2s;
+            cursor: pointer;
+        }
+
+        .otd-field:hover {
+            border-color: var(--accent);
+        }
+
+        .otd-field-label {
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            padding: 10px 14px;
+            background: var(--elevated);
+            min-width: 72px;
+            border-right: 1px solid var(--border);
+        }
+
+        .otd-field-value {
+            flex: 1;
+            font-family: var(--mono);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            padding: 10px 14px;
+            background: var(--surface);
+            user-select: all;
+        }
+
+        .otd-field-copy {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-muted);
+            padding: 10px 12px;
+            background: var(--surface);
+            transition: color 0.2s;
+            white-space: nowrap;
+        }
+
+        .otd-field:hover .otd-field-copy {
+            color: var(--accent);
+        }
+
+        .otd-field.copied .otd-field-copy {
+            color: var(--accent);
+        }
+
+        .otd-field.copied {
+            border-color: var(--accent);
+        }
+
         /* ═══ REFERENCE CARDS ════════════════════════════════════════════════ */
         .ref-section {
             margin-bottom: 48px;
@@ -689,6 +775,7 @@
             <nav>
                 <a href="#calculator">Calculator</a>
                 <a href="#viz">Visualization</a>
+                <a href="#install">Install</a>
                 <a href="#reference">Reference</a>
                 <a href="https://github.com/EncyOnCode/VelocityGuard" target="_blank" rel="noopener"
                     class="gh-link">GitHub ↗</a>
@@ -867,6 +954,35 @@
                 </div>
             </div>
         </section>
+
+        <!-- ═══ INSTALL ═══ -->
+        <section class="install-section fade-in" style="animation-delay:0.4s" id="install">
+            <div class="section-label">QUICK INSTALL</div>
+            <div class="panel install-panel">
+                <div class="panel-title">OTD Repository Source</div>
+                <ol class="install-steps">
+                    <li>Open <strong>OpenTabletDriver</strong></li>
+                    <li>Go to <strong>Plugins</strong> → <strong>Open Plugin Manager</strong></li>
+                    <li>Click the <strong>⋯</strong> menu → <strong>Switch repository source</strong></li>
+                    <li>Enter the values below and click <strong>Apply</strong></li>
+                </ol>
+                <div class="otd-field" data-copy="EncyOnCode">
+                    <span class="otd-field-label">Owner</span>
+                    <span class="otd-field-value">EncyOnCode</span>
+                    <span class="otd-field-copy">CLICK TO COPY</span>
+                </div>
+                <div class="otd-field" data-copy="VelocityGuard">
+                    <span class="otd-field-label">Name</span>
+                    <span class="otd-field-value">VelocityGuard</span>
+                    <span class="otd-field-copy">CLICK TO COPY</span>
+                </div>
+                <div class="otd-field" data-copy="main">
+                    <span class="otd-field-label">Ref</span>
+                    <span class="otd-field-value">main</span>
+                    <span class="otd-field-copy">CLICK TO COPY</span>
+                </div>
+            </div>
+        </section>
     </main>
 
     <!-- ═══ FOOTER ═══ -->
@@ -1021,6 +1137,22 @@
                     btn.textContent = 'COPY SETTINGS';
                     btn.classList.remove('copied');
                 }, 1500);
+            });
+        });
+
+        /* ── OTD Field Copy ─────────────────────────────────────────────── */
+        document.querySelectorAll('.otd-field').forEach(field => {
+            field.addEventListener('click', () => {
+                const val = field.dataset.copy;
+                navigator.clipboard.writeText(val).then(() => {
+                    const label = field.querySelector('.otd-field-copy');
+                    field.classList.add('copied');
+                    label.textContent = '✓ COPIED';
+                    setTimeout(() => {
+                        label.textContent = 'CLICK TO COPY';
+                        field.classList.remove('copied');
+                    }, 1200);
+                });
             });
         });
 
