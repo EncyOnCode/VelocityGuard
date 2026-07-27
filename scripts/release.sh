@@ -14,6 +14,10 @@
 
 set -euo pipefail
 
+# Without this, any failing command exits silently with no indication of where it stopped —
+# which is exactly how a release can look like it "just did nothing".
+trap 'echo "error: release.sh aborted at line $LINENO" >&2' ERR
+
 REPO_SLUG="EncyOnCode/VelocityGuard"
 ZIP_NAME="VelocityGuard.zip"
 DLL_NAME="VelocityGuard.dll"
@@ -25,11 +29,13 @@ ROOT="$PWD"
 VERSION="${1:-}"
 DRY_RUN=0
 ASSUME_YES=0
+ALLOW_BRANCH=0
 shift || true
 for arg in "$@"; do
   case "$arg" in
-    --dry-run) DRY_RUN=1 ;;
-    --yes|-y)  ASSUME_YES=1 ;;
+    --dry-run)      DRY_RUN=1 ;;
+    --yes|-y)       ASSUME_YES=1 ;;
+    --allow-branch) ALLOW_BRANCH=1 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
 done
@@ -53,6 +59,26 @@ fi
 
 if git rev-parse "$TAG" >/dev/null 2>&1; then
   die "tag $TAG already exists"
+fi
+
+# The OTD plugin manager reads the manifest from the repository's default branch (source ref
+# "main"). Releasing from anywhere else publishes the zip but leaves the manifest users actually
+# see pointing at the previous version — the release looks fine and delivers nothing.
+DEFAULT_BRANCH=$(gh repo view "$REPO_SLUG" --json defaultBranchRef --jq .defaultBranchRef.name)
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [[ "$CURRENT_BRANCH" != "$DEFAULT_BRANCH" ]]; then
+  if [[ $ALLOW_BRANCH -eq 0 ]]; then
+    die "on '$CURRENT_BRANCH', but OTD reads the manifest from '$DEFAULT_BRANCH'.
+       Merge first, or pass --allow-branch if you really mean to tag this branch."
+  fi
+  echo "warning: releasing from '$CURRENT_BRANCH' rather than '$DEFAULT_BRANCH'" >&2
+fi
+
+# A stale local branch would publish a manifest that does not match what is on the remote.
+git fetch --quiet origin "$CURRENT_BRANCH"
+if [[ -n "$(git rev-list "origin/$CURRENT_BRANCH..HEAD" 2>/dev/null)" ]] ||
+   [[ -n "$(git rev-list "HEAD..origin/$CURRENT_BRANCH" 2>/dev/null)" ]]; then
+  die "'$CURRENT_BRANCH' is out of sync with origin; push or pull before releasing"
 fi
 
 # The manifest path encodes the supported driver version, so find it rather than hardcode it.
@@ -105,8 +131,19 @@ if [[ $DRY_RUN -eq 1 ]]; then
 fi
 
 if [[ $ASSUME_YES -eq 0 ]]; then
-  read -r -p "Publish this release? [y/N] " reply
-  [[ "$reply" =~ ^[Yy]$ ]] || { echo "aborted"; rm -f "$ZIP_NAME"; exit 1; }
+  # Without a terminal, `read` hits EOF and set -e would kill the script with no message at all.
+  # Fail loudly and tell the caller what to do instead.
+  if [[ ! -t 0 ]]; then
+    rm -f "$ZIP_NAME"
+    die "no terminal to confirm on; re-run with --yes to publish non-interactively"
+  fi
+  reply=""
+  read -r -p "Publish this release? [y/N] " reply || true
+  if [[ ! "$reply" =~ ^[Yy]$ ]]; then
+    rm -f "$ZIP_NAME"
+    echo "aborted — nothing was committed, tagged or published."
+    exit 1
+  fi
 fi
 
 # ── Manifest ─────────────────────────────────────────────────────────────────
