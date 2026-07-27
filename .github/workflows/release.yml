@@ -1,10 +1,12 @@
 name: Release
 
-# Cutting a release by hand has broken twice already: once with a DownloadUrl pointing at the
-# wrong tag, once with an uppercase SHA256 that OTD rejects. Both values are derived here instead.
+# Superseded by scripts/release.sh, which does the same thing locally. GitHub Actions cannot start
+# on this account while it is billing-locked, and a tag trigger that fails is worse than none: it
+# would publish nothing while looking like it had. Kept for whenever billing is resolved.
+# To restore, put back:
+#   push:
+#     tags: ['[0-9]+.[0-9]+.[0-9]+', 'v[0-9]+.[0-9]+.[0-9]+']
 on:
-  push:
-    tags: ['[0-9]+.[0-9]+.[0-9]+', 'v[0-9]+.[0-9]+.[0-9]+']
   workflow_dispatch:
     inputs:
       tag:
