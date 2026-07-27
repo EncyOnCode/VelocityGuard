@@ -1,9 +1,13 @@
 name: CI
 
+# Automatic triggers are removed on purpose: GitHub Actions cannot start on this account while
+# it is billing-locked, so a push trigger only produces a failed check on every commit. Builds and
+# tests run locally instead — see scripts/release.sh and the Build section of CLAUDE.md.
+# To restore CI once billing is resolved, put back:
+#   push:
+#     branches: ['**']
+#   pull_request:
 on:
-  push:
-    branches: ['**']
-  pull_request:
   workflow_dispatch:
 
 jobs:
