@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.Numerics;
-using OpenTabletDriver.Plugin;
 using OpenTabletDriver.Plugin.Attributes;
 using OpenTabletDriver.Plugin.Output;
 using OpenTabletDriver.Plugin.Tablet;
@@ -9,122 +8,102 @@ using OpenTabletDriver.Plugin.Tablet;
 namespace VelocityGuard;
 
 /// <summary>
-/// VelocityGuard v2 — Velocity-Adaptive Dead Zone filter for OpenTabletDriver.
-/// Optimized for osu!: suppresses pen chatter at rest, passes fast movements with zero latency.
-/// Features: high-precision timer, EMA speed smoothing, nonlinear curve, micro-smoothing, prediction.
+/// VelocityGuard v2 — velocity-adaptive dead zone filter for OpenTabletDriver.
+/// Suppresses pen chatter at rest and during slow aim, and hands through fast movement unaltered.
 /// </summary>
+/// <remarks>
+/// This type is only the driver-facing shell: settings, pipeline placement and timing.
+/// All filtering lives in <see cref="VelocityGuardCore"/>, which has no driver dependencies.
+/// </remarks>
 [PluginName("VelocityGuard")]
 public class VelocityGuard : IPositionedPipelineElement<IDeviceReport>
 {
     // ─── User-facing settings ────────────────────────────────────────────────
+    //
+    // Property names are the keys OTD stores settings under. Three of them deliberately differ
+    // from v1: SpeedSmoothAlpha, MinSmoothFactor and PredictionStrength all changed both units
+    // and meaning, so reusing their names would have silently reinterpreted saved values rather
+    // than resetting them. v1 settings do not carry over.
 
-    /// <summary>Maximum dead-zone radius (screen pixels) when the pen is fully at rest.</summary>
+    /// <summary>Dead-zone radius (screen pixels) when the pen shows no net movement.</summary>
     [SliderProperty("Max Dead Zone", 0f, 20f, 4f), Unit("px")]
     public float MaxDeadZone { get; set; } = 4f;
 
-    /// <summary>Speed (px/ms) at which the dead zone shrinks to zero.</summary>
-    [SliderProperty("Full Speed Threshold", 1f, 50f, 12f), Unit("px/ms")]
-    public float FullSpeedThreshold { get; set; } = 12f;
+    /// <summary>Net speed at which the dead zone reaches zero and output becomes raw passthrough.</summary>
+    [SliderProperty("Full Speed Threshold", 0.5f, 50f, 6f), Unit("px/ms")]
+    public float FullSpeedThreshold { get; set; } = 6f;
 
-    /// <summary>Dead zone decay curve. &lt;1 = collapses faster, &gt;1 = holds longer.</summary>
+    /// <summary>Dead-zone decay shape. &lt;1 collapses earlier, &gt;1 holds the zone longer.</summary>
     [SliderProperty("Curve", 0.1f, 3f, 1f)]
     public float Curve { get; set; } = 1f;
 
-    /// <summary>EMA alpha for speed smoothing. 1.0 = raw speed, lower = smoother.</summary>
-    [SliderProperty("Speed Smooth", 0f, 1f, 0.5f)]
-    public float SpeedSmoothAlpha { get; set; } = 0.5f;
+    /// <summary>Time constant of the velocity estimator. Higher reacts more slowly but more steadily.</summary>
+    [SliderProperty("Velocity Smooth", 0f, 20f, 4f), Unit("ms")]
+    public float VelocitySmoothMs { get; set; } = 4f;
 
-    /// <summary>Interpolation factor at low speed. 1.0 = no smoothing, lower = smoother transitions.</summary>
-    [SliderProperty("Smooth Factor", 0f, 1f, 0.8f)]
-    public float MinSmoothFactor { get; set; } = 0.8f;
+    /// <summary>Optional extra output smoothing. Off by default; the dead zone alone is already continuous.</summary>
+    [SliderProperty("Output Smooth", 0f, 8f, 0f), Unit("ms")]
+    public float OutputSmoothMs { get; set; } = 0f;
 
-    /// <summary>Prediction strength along movement direction. 0 = off.</summary>
-    [SliderProperty("Prediction", 0f, 2f, 0f)]
-    public float PredictionStrength { get; set; } = 0f;
+    /// <summary>How much of the dead-zone offset to cancel on coherent movement. 0 = off, 1 = all of it.</summary>
+    [SliderProperty("Lead", 0f, 1f, 0.75f)]
+    public float Lead { get; set; } = 0.75f;
 
     // ─── Pipeline position ──────────────────────────────────────────────────
 
+    /// <summary>
+    /// PostTransform: positions arrive already mapped to screen pixels, which is why every setting
+    /// above is in px or px/ms. Changing tablet area or resolution therefore changes what these
+    /// values mean in physical terms and calls for retuning.
+    /// </summary>
     public PipelinePosition Position => PipelinePosition.PostTransform;
 
     public event Action<IDeviceReport>? Emit;
 
     // ─── Internal state ─────────────────────────────────────────────────────
 
-    private Vector2 _lastOutput;
-    private Vector2 _lastInput;
-    private long _lastTimestamp = Stopwatch.GetTimestamp();
-    private float _smoothSpeed;
-    private bool _initialized;
+    private readonly VelocityGuardCore _core = new();
+    private long _lastTimestamp;
+    private bool _hasTimestamp;
 
     // ─── Pipeline entry point ───────────────────────────────────────────────
 
     public void Consume(IDeviceReport report)
     {
         if (report is ITabletReport tabletReport)
-        {
             tabletReport.Position = Filter(tabletReport.Position);
-        }
+
         Emit?.Invoke(report);
     }
 
-    // ─── Core filter logic ──────────────────────────────────────────────────
-
     private Vector2 Filter(Vector2 input)
     {
-        // ── 1. High-precision delta time (Stopwatch instead of DateTime) ────
+        // Stopwatch rather than DateTime: reports arrive every 2-8 ms, well inside DateTime's
+        // ~15 ms granularity, which would quantise the velocity estimate into uselessness.
         long now = Stopwatch.GetTimestamp();
-        float dt = (float)(now - _lastTimestamp) / Stopwatch.Frequency * 1000f; // ms
+
+        // A first report has no meaningful delta. Handing the core a non-positive dt makes it
+        // reseed and pass through, which is exactly the wanted behaviour.
+        float dtMs = 0f;
+        if (_hasTimestamp)
+            dtMs = (float)(now - _lastTimestamp) / Stopwatch.Frequency * 1000f;
+
         _lastTimestamp = now;
+        _hasTimestamp = true;
 
-        // First call: initialize state, pass through
-        if (!_initialized)
+        // Pen lifts and daemon stalls are recovered from the timestamp gap alone
+        // (see VelocityGuardCore.ResetThresholdMs) rather than from proximity reports,
+        // which keeps this shell free of optional driver report types.
+        var settings = new VelocityGuardSettings
         {
-            _initialized = true;
-            _lastInput = input;
-            _lastOutput = input;
-            return input;
-        }
+            MaxDeadZone = MaxDeadZone,
+            FullSpeedThreshold = FullSpeedThreshold,
+            Curve = Curve,
+            VelocitySmoothMs = VelocitySmoothMs,
+            OutputSmoothMs = OutputSmoothMs,
+            Lead = Lead
+        };
 
-        // ── 2. Raw speed ────────────────────────────────────────────────────
-        float rawSpeed = dt > 0.001f ? (input - _lastInput).Length() / dt : 0f;
-
-        // ── 3. EMA speed smoothing ──────────────────────────────────────────
-        float alpha = Math.Clamp(SpeedSmoothAlpha, 0.001f, 1f);
-        _smoothSpeed = alpha * rawSpeed + (1f - alpha) * _smoothSpeed;
-
-        Vector2 prevInput = _lastInput;
-        _lastInput = input;
-
-        // ── 4. Nonlinear dead zone curve ────────────────────────────────────
-        float t = Math.Clamp(_smoothSpeed / Math.Max(FullSpeedThreshold, 0.001f), 0f, 1f);
-        float shaped = MathF.Pow(t, Math.Max(Curve, 0.01f));
-        float deadZone = MaxDeadZone * (1f - shaped);
-
-        // ── 5. Prediction (shift input along movement direction) ────────────
-        Vector2 effectiveInput = input;
-        if (PredictionStrength > 0f && dt > 0.001f)
-        {
-            Vector2 delta = input - prevInput;
-            float len = delta.Length();
-            if (len > 0.001f)
-            {
-                Vector2 direction = delta / len; // normalized
-                effectiveInput = input + direction * PredictionStrength * _smoothSpeed * dt;
-            }
-        }
-
-        // ── 6. Dead zone gate + micro-smoothing ─────────────────────────────
-        float dist = Vector2.Distance(effectiveInput, _lastOutput);
-
-        if (dist > deadZone)
-        {
-            // Outside dead zone — update output
-            // Micro-smoothing: lerp factor scales with speed (shaped)
-            float smoothFactor = MathF.Max(shaped, Math.Clamp(MinSmoothFactor, 0.01f, 1f));
-            _lastOutput = Vector2.Lerp(_lastOutput, effectiveInput, smoothFactor);
-        }
-        // else: inside dead zone — hold last output (chatter suppressed)
-
-        return _lastOutput;
+        return _core.Filter(input, dtMs, in settings);
     }
 }

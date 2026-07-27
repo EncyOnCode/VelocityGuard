@@ -770,7 +770,7 @@
             <div class="logo">
                 <span class="logo-mark">▸</span>
                 <span>VELOCITY<span class="logo-accent">GUARD</span></span>
-                <span class="logo-ver">v1.0</span>
+                <span class="logo-ver">v2.0</span>
             </div>
             <nav>
                 <a href="#calculator">Calculator</a>
@@ -851,10 +851,10 @@
                     <div class="slider-group">
                         <div class="slider-header">
                             <label>Full Speed Threshold</label>
-                            <span class="slider-value" id="v-fst">12.0</span>
+                            <span class="slider-value" id="v-fst">6.0</span>
                             <span class="slider-unit">px/ms</span>
                         </div>
-                        <input type="range" id="s-fst" min="1" max="50" step="0.1" value="12">
+                        <input type="range" id="s-fst" min="0.5" max="50" step="0.1" value="6">
                     </div>
 
                     <div class="slider-group">
@@ -868,29 +868,29 @@
 
                     <div class="slider-group">
                         <div class="slider-header">
-                            <label>Speed Smooth</label>
-                            <span class="slider-value" id="v-ssm">0.5</span>
-                            <span class="slider-unit">α</span>
+                            <label>Velocity Smooth</label>
+                            <span class="slider-value" id="v-vsm">4.0</span>
+                            <span class="slider-unit">ms</span>
                         </div>
-                        <input type="range" id="s-ssm" min="0" max="1" step="0.01" value="0.5">
+                        <input type="range" id="s-vsm" min="0" max="20" step="0.5" value="4">
                     </div>
 
                     <div class="slider-group">
                         <div class="slider-header">
-                            <label>Smooth Factor</label>
-                            <span class="slider-value" id="v-sfr">0.8</span>
-                            <span class="slider-unit"></span>
+                            <label>Output Smooth</label>
+                            <span class="slider-value" id="v-osm">0.0</span>
+                            <span class="slider-unit">ms</span>
                         </div>
-                        <input type="range" id="s-sfr" min="0" max="1" step="0.01" value="0.8">
+                        <input type="range" id="s-osm" min="0" max="8" step="0.5" value="0">
                     </div>
 
                     <div class="slider-group">
                         <div class="slider-header">
-                            <label>Prediction</label>
-                            <span class="slider-value" id="v-prd">0.0</span>
+                            <label>Lead</label>
+                            <span class="slider-value" id="v-led">0.8</span>
                             <span class="slider-unit"></span>
                         </div>
-                        <input type="range" id="s-prd" min="0" max="2" step="0.1" value="0">
+                        <input type="range" id="s-led" min="0" max="1" step="0.05" value="0.75">
                     </div>
 
                     <button id="copy-btn" class="secondary-btn">COPY SETTINGS</button>
@@ -904,9 +904,13 @@
             <div class="panel viz-panel">
                 <div class="viz-stats">
                     <div class="viz-stat">
-                        <span class="stat-label">Speed</span>
+                        <span class="stat-label">Net Speed</span>
                         <span class="stat-value" id="viz-speed">0.0</span>
                         <span class="stat-unit">px/ms</span>
+                    </div>
+                    <div class="viz-stat">
+                        <span class="stat-label">Coherence</span>
+                        <span class="stat-value" id="viz-coh">0.00</span>
                     </div>
                     <div class="viz-stat">
                         <span class="stat-label">Dead Zone</span>
@@ -918,8 +922,16 @@
                         <span class="stat-value" id="viz-state">IDLE</span>
                     </div>
                 </div>
+                <div class="input-group">
+                    <label>Compare</label>
+                    <div class="btn-group" id="compare-group">
+                        <button class="toggle-btn active" data-val="v2">v2 only</button>
+                        <button class="toggle-btn" data-val="both">v1 vs v2</button>
+                    </div>
+                </div>
                 <canvas id="canvas"></canvas>
-                <p class="viz-hint">Move your cursor over the canvas to see the filter in action</p>
+                <p class="viz-hint">Move your cursor over the canvas to see the filter in action. Hold still to
+                    watch chatter get suppressed; flick fast to watch the dead zone collapse to zero.</p>
             </div>
         </section>
 
@@ -944,13 +956,19 @@
                     <div class="ref-solution">Decrease <strong>Curve</strong> to 0.4–0.7</div>
                 </div>
                 <div class="ref-card">
-                    <div class="ref-problem"><span class="ref-arrow">→</span> Want silky slow aim?</div>
-                    <div class="ref-solution">Decrease <strong>Smooth Factor</strong> to 0.5–0.7</div>
+                    <div class="ref-problem"><span class="ref-arrow">→</span> Cursor lags behind?</div>
+                    <div class="ref-solution">Increase <strong>Lead</strong> towards 1.0 — it cancels the dead-zone
+                        offset on deliberate movement without letting chatter through</div>
                 </div>
                 <div class="ref-card">
-                    <div class="ref-problem"><span class="ref-arrow">→</span> Cursor lags behind?</div>
-                    <div class="ref-solution">Increase <strong>Speed Smooth</strong> towards 1.0 (raw speed, less EMA)
-                    </div>
+                    <div class="ref-problem"><span class="ref-arrow">→</span> Dead zone reacts too slowly?</div>
+                    <div class="ref-solution">Decrease <strong>Velocity Smooth</strong> to 2–3 ms (below ~2 ms chatter
+                        starts leaking back in)</div>
+                </div>
+                <div class="ref-card">
+                    <div class="ref-problem"><span class="ref-arrow">→</span> Coming from v1?</div>
+                    <div class="ref-solution">Your settings will not carry over, and <strong>Full Speed
+                            Threshold</strong> now wants roughly half its old value</div>
                 </div>
             </div>
         </section>
@@ -1001,9 +1019,9 @@
             mdz: { el: $('s-mdz'), val: $('v-mdz'), key: 'maxDeadZone' },
             fst: { el: $('s-fst'), val: $('v-fst'), key: 'fullSpeedThreshold' },
             crv: { el: $('s-crv'), val: $('v-crv'), key: 'curve' },
-            ssm: { el: $('s-ssm'), val: $('v-ssm'), key: 'speedSmooth' },
-            sfr: { el: $('s-sfr'), val: $('v-sfr'), key: 'smoothFactor' },
-            prd: { el: $('s-prd'), val: $('v-prd'), key: 'prediction' }
+            vsm: { el: $('s-vsm'), val: $('v-vsm'), key: 'velocitySmoothMs' },
+            osm: { el: $('s-osm'), val: $('v-osm'), key: 'outputSmoothMs' },
+            led: { el: $('s-led'), val: $('v-led'), key: 'lead' }
         };
 
         /* ── Current Parameters ────────────────────────────────────────── */
@@ -1012,9 +1030,24 @@
                 maxDeadZone: parseFloat(sliders.mdz.el.value),
                 fullSpeedThreshold: parseFloat(sliders.fst.el.value),
                 curve: parseFloat(sliders.crv.el.value),
-                speedSmooth: parseFloat(sliders.ssm.el.value),
-                smoothFactor: parseFloat(sliders.sfr.el.value),
-                prediction: parseFloat(sliders.prd.el.value)
+                velocitySmoothMs: parseFloat(sliders.vsm.el.value),
+                outputSmoothMs: parseFloat(sliders.osm.el.value),
+                lead: parseFloat(sliders.led.el.value)
+            };
+        }
+
+        /* Rough v1 equivalents, used only to render the comparison trail. v1's Speed Smooth and
+           Smooth Factor are per-report factors with no time-based counterpart, so these are the
+           shipped v1 defaults rather than a translation of the current v2 sliders. */
+        function getV1Params() {
+            const p = getParams();
+            return {
+                maxDeadZone: p.maxDeadZone,
+                fullSpeedThreshold: p.fullSpeedThreshold * 2, // v1 measured gross speed, which runs higher
+                curve: p.curve,
+                speedSmooth: 0.5,
+                smoothFactor: 0.8,
+                prediction: 0
             };
         }
 
@@ -1032,7 +1065,7 @@
         Object.values(sliders).forEach(s => {
             const handler = () => {
                 const decimals = s.el.step.includes('.') ? s.el.step.split('.')[1].length : 0;
-                s.val.textContent = parseFloat(s.el.value).toFixed(Math.min(decimals, 1));
+                s.val.textContent = parseFloat(s.el.value).toFixed(Math.min(decimals, 2));
                 updateSliderFill(s.el);
             };
             s.el.addEventListener('input', handler);
@@ -1066,36 +1099,37 @@
             // Chatter multiplier
             const chatterMul = { low: 0.6, medium: 1.0, high: 1.5 }[chatter] || 1;
 
-            // Base presets by playstyle
+            // Base presets by playstyle. Thresholds are roughly half their v1 counterparts because
+            // v2 drives the dead zone from net speed, which is lower than the gross speed v1 used.
             let base;
             switch (play) {
                 case 'jump':
-                    base = { mdz: 3, fst: 6, crv: 0.6, ssm: 0.6, sfr: 0.9, prd: 0.0 };
+                    base = { mdz: 3, fst: 4, crv: 0.6, vsm: 4, osm: 0, led: 0.75 };
                     break;
                 case 'stream':
-                    base = { mdz: 5, fst: 15, crv: 1.2, ssm: 0.4, sfr: 0.6, prd: 0.0 };
+                    base = { mdz: 5, fst: 8, crv: 1.2, vsm: 6, osm: 0, led: 0.5 };
                     break;
                 default: // allround
-                    base = { mdz: 4, fst: 12, crv: 1.0, ssm: 0.5, sfr: 0.8, prd: 0.0 };
+                    base = { mdz: 4, fst: 6, crv: 1.0, vsm: 4, osm: 0, led: 0.75 };
             }
 
             // Scale by area and chatter
             const result = {
                 mdz: clamp(round1(base.mdz * areaScale * chatterMul), 0, 20),
-                fst: clamp(round1(base.fst * areaScale), 1, 50),
+                fst: clamp(round1(base.fst * areaScale), 0.5, 50),
                 crv: clamp(round1(base.crv), 0.1, 3),
-                ssm: clamp(round2(base.ssm), 0, 1),
-                sfr: clamp(round2(base.sfr), 0, 1),
-                prd: clamp(round1(base.prd), 0, 2)
+                vsm: clamp(round1(base.vsm), 0, 20),
+                osm: clamp(round1(base.osm), 0, 8),
+                led: clamp(round2(base.led), 0, 1)
             };
 
             // Animate sliders
             setSlider('mdz', result.mdz);
             setSlider('fst', result.fst);
             setSlider('crv', result.crv);
-            setSlider('ssm', result.ssm);
-            setSlider('sfr', result.sfr);
-            setSlider('prd', result.prd);
+            setSlider('vsm', result.vsm);
+            setSlider('osm', result.osm);
+            setSlider('led', result.led);
 
             // Button flash
             const btn = $('calc-btn');
@@ -1108,7 +1142,7 @@
             const s = sliders[key];
             s.el.value = value;
             const decimals = s.el.step.includes('.') ? s.el.step.split('.')[1].length : 0;
-            s.val.textContent = value.toFixed(Math.min(decimals, 1));
+            s.val.textContent = value.toFixed(Math.min(decimals, 2));
             updateSliderFill(s.el);
         }
 
@@ -1125,9 +1159,9 @@
                 `Max Dead Zone: ${p.maxDeadZone}`,
                 `Full Speed Threshold: ${p.fullSpeedThreshold}`,
                 `Curve: ${p.curve}`,
-                `Speed Smooth: ${p.speedSmooth}`,
-                `Smooth Factor: ${p.smoothFactor}`,
-                `Prediction: ${p.prediction}`
+                `Velocity Smooth: ${p.velocitySmoothMs}`,
+                `Output Smooth: ${p.outputSmoothMs}`,
+                `Lead: ${p.lead}`
             ].join('\n');
             navigator.clipboard.writeText(text).then(() => {
                 const btn = $('copy-btn');
@@ -1161,15 +1195,130 @@
         const ctx = canvas.getContext('2d');
         const DZ_SCALE = 6; // visual scale factor for dead zone circle
 
-        // Filter state
-        let lastOutput = null;
-        let lastInput = null;
-        let lastTime = 0;
-        let smoothSpeed = 0;
         let mouseOnCanvas = false;
         let rawTrail = [];
         let filtTrail = [];
+        let v1Trail = [];
         const TRAIL_LEN = 40;
+
+        /* ── Filter cores (must mirror VelocityGuardCore.cs) ─────────────── */
+        const RESET_THRESHOLD_MS = 100, MIN_DELTA_MS = 1e-3, EPSILON = 1e-6;
+        const MIN_CURVE = 0.01, COHERENCE_WINDOW_MS = 25;
+
+        const hyp = (x, y) => Math.hypot(x, y);
+        const timeAlpha = (dt, tau) => (tau <= MIN_DELTA_MS ? 1 : 1 - Math.exp(-dt / tau));
+
+        function makeV2Filter() {
+            let outX = 0, outY = 0, inX = 0, inY = 0, lastTime = 0;
+            let velX = 0, velY = 0, speed = 0;
+            let slowVelX = 0, slowVelY = 0, slowSpeed = 0;
+            let ready = false;
+
+            function seed(x, y, now) {
+                ready = true; lastTime = now;
+                inX = x; inY = y; outX = x; outY = y;
+                velX = velY = speed = slowVelX = slowVelY = slowSpeed = 0;
+                return { x, y, deadZone: 0, netSpeed: 0, coherence: 0, state: 'TRACKING' };
+            }
+
+            return function (x, y, now, p) {
+                if (!ready) return seed(x, y, now);
+                const dt = now - lastTime;
+                lastTime = now;
+                if (!(dt > 0) || dt > RESET_THRESHOLD_MS) return seed(x, y, now);
+                if (dt < MIN_DELTA_MS) return { x: outX, y: outY, deadZone: 0, netSpeed: 0, coherence: 0, state: 'LOCKED' };
+
+                // 1. velocity, smoothed over time rather than over reports
+                const ivX = (x - inX) / dt, ivY = (y - inY) / dt;
+                inX = x; inY = y;
+                const instant = hyp(ivX, ivY);
+
+                const a = timeAlpha(dt, p.velocitySmoothMs);
+                velX += (ivX - velX) * a; velY += (ivY - velY) * a;
+                speed += (instant - speed) * a;
+
+                const sa = timeAlpha(dt, COHERENCE_WINDOW_MS);
+                slowVelX += (ivX - slowVelX) * sa; slowVelY += (ivY - slowVelY) * sa;
+                slowSpeed += (instant - slowSpeed) * sa;
+
+                // 2. net speed drives the dead zone; coherence gates the lead
+                const netSpeed = hyp(velX, velY);
+                const coherence = slowSpeed > EPSILON
+                    ? clamp(hyp(slowVelX, slowVelY) / slowSpeed, 0, 1) : 0;
+
+                // 3. dead-zone radius
+                const maxDz = Math.max(p.maxDeadZone, 0);
+                const t = clamp(netSpeed / Math.max(p.fullSpeedThreshold, EPSILON), 0, 1);
+                const shaped = Math.pow(t, Math.max(p.curve, MIN_CURVE));
+                const deadZone = maxDz * (1 - shaped);
+
+                // 4. lead, bounded by the dead zone it cancels
+                let effX = x, effY = y;
+                if (p.lead > 0 && coherence > 0 && deadZone > EPSILON && netSpeed > EPSILON) {
+                    const gate = coherence * coherence * coherence;
+                    const mag = deadZone * clamp(p.lead, 0, 1) * gate;
+                    effX = x + (velX / netSpeed) * mag;
+                    effY = y + (velY / netSpeed) * mag;
+                }
+
+                // 5. drag dead zone — continuous across the boundary
+                const toX = effX - outX, toY = effY - outY;
+                const dist = hyp(toX, toY);
+                let tgtX = outX, tgtY = outY, held = true;
+                if (dist > deadZone && dist > EPSILON) {
+                    const s = deadZone / dist;
+                    tgtX = effX - toX * s; tgtY = effY - toY * s;
+                    held = false;
+                }
+
+                // 6. output smoothing, time constant collapsing at full speed
+                const k = timeAlpha(dt, Math.max(p.outputSmoothMs, 0) * (1 - shaped));
+                if (k >= 1) { outX = tgtX; outY = tgtY; }
+                else { outX += (tgtX - outX) * k; outY += (tgtY - outY) * k; }
+
+                return { x: outX, y: outY, deadZone, netSpeed, coherence, state: held ? 'LOCKED' : 'TRACKING' };
+            };
+        }
+
+        /* v1, kept verbatim so the comparison trail shows what actually shipped. */
+        function makeV1Filter() {
+            let outX = 0, outY = 0, inX = 0, inY = 0, lastTime = 0, smoothSpeed = 0, ready = false;
+            return function (x, y, now, p) {
+                if (!ready) {
+                    ready = true; lastTime = now;
+                    inX = x; inY = y; outX = x; outY = y;
+                    return { x, y };
+                }
+                const dt = now - lastTime;
+                lastTime = now;
+                if (dt < 0.001) return { x: outX, y: outY };
+
+                const rawSpeed = hyp(x - inX, y - inY) / dt;
+                const alpha = clamp(p.speedSmooth, 0.001, 1);
+                smoothSpeed = alpha * rawSpeed + (1 - alpha) * smoothSpeed;
+                inX = x; inY = y;
+
+                const t = clamp(smoothSpeed / Math.max(p.fullSpeedThreshold, 0.001), 0, 1);
+                const shaped = Math.pow(t, Math.max(p.curve, 0.01));
+                const deadZone = p.maxDeadZone * (1 - shaped);
+
+                if (hyp(x - outX, y - outY) > deadZone) {
+                    const sf = Math.max(shaped, clamp(p.smoothFactor, 0.01, 1));
+                    outX += (x - outX) * sf;
+                    outY += (y - outY) * sf;
+                }
+                return { x: outX, y: outY };
+            };
+        }
+
+        let v2Filter = makeV2Filter();
+        let v1Filter = makeV1Filter();
+
+        function resetFilters() {
+            v2Filter = makeV2Filter();
+            v1Filter = makeV1Filter();
+            rawTrail = []; filtTrail = []; v1Trail = [];
+        }
 
         function resizeCanvas() {
             const rect = canvas.getBoundingClientRect();
@@ -1186,12 +1335,7 @@
 
         canvas.addEventListener('mouseenter', () => {
             mouseOnCanvas = true;
-            lastOutput = null;
-            lastInput = null;
-            lastTime = 0;
-            smoothSpeed = 0;
-            rawTrail = [];
-            filtTrail = [];
+            resetFilters();
         });
         canvas.addEventListener('mouseleave', () => { mouseOnCanvas = false; });
         canvas.addEventListener('mousemove', e => {
@@ -1203,8 +1347,7 @@
         canvas.addEventListener('touchstart', e => {
             e.preventDefault();
             mouseOnCanvas = true;
-            lastOutput = null; lastInput = null; lastTime = 0; smoothSpeed = 0;
-            rawTrail = []; filtTrail = [];
+            resetFilters();
             const touch = e.touches[0];
             const rect = canvas.getBoundingClientRect();
             mouseX = touch.clientX - rect.left;
@@ -1218,67 +1361,6 @@
             mouseY = touch.clientY - rect.top;
         }, { passive: false });
         canvas.addEventListener('touchend', () => { mouseOnCanvas = false; });
-
-        /* ── VelocityGuard Filter (JS port) ─── */
-        function applyFilter(input, now) {
-            const p = getParams();
-
-            if (!lastOutput) {
-                lastOutput = { x: input.x, y: input.y };
-                lastInput = { x: input.x, y: input.y };
-                lastTime = now;
-                return { ...lastOutput };
-            }
-
-            const dt = now - lastTime;
-            lastTime = now;
-            if (dt < 0.001) return { ...lastOutput };
-
-            // Raw speed
-            const dx = input.x - lastInput.x;
-            const dy = input.y - lastInput.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const rawSpeed = dist / dt;
-
-            // EMA smooth
-            const alpha = clamp(p.speedSmooth, 0.001, 1);
-            smoothSpeed = alpha * rawSpeed + (1 - alpha) * smoothSpeed;
-
-            const prevInput = { ...lastInput };
-            lastInput = { x: input.x, y: input.y };
-
-            // Nonlinear dead zone
-            const t = clamp(smoothSpeed / Math.max(p.fullSpeedThreshold, 0.001), 0, 1);
-            const shaped = Math.pow(t, Math.max(p.curve, 0.01));
-            const deadZone = p.maxDeadZone * (1 - shaped);
-
-            // Prediction
-            let effX = input.x, effY = input.y;
-            if (p.prediction > 0 && dt > 0.001) {
-                const pdx = input.x - prevInput.x;
-                const pdy = input.y - prevInput.y;
-                const plen = Math.sqrt(pdx * pdx + pdy * pdy);
-                if (plen > 0.001) {
-                    effX = input.x + (pdx / plen) * p.prediction * smoothSpeed * dt;
-                    effY = input.y + (pdy / plen) * p.prediction * smoothSpeed * dt;
-                }
-            }
-
-            // Dead zone gate
-            const odx = effX - lastOutput.x;
-            const ody = effY - lastOutput.y;
-            const odist = Math.sqrt(odx * odx + ody * ody);
-
-            if (odist > deadZone) {
-                const sf = Math.max(shaped, clamp(p.smoothFactor, 0.01, 1));
-                lastOutput = {
-                    x: lastOutput.x + (effX - lastOutput.x) * sf,
-                    y: lastOutput.y + (effY - lastOutput.y) * sf
-                };
-            }
-
-            return { ...lastOutput, deadZone, speed: smoothSpeed, state: odist > deadZone ? 'TRACKING' : 'LOCKED' };
-        }
 
         /* ── Render Loop ─── */
         function draw() {
@@ -1336,6 +1418,7 @@
                 ctx.fillText('Move cursor here to begin', cx, cy + r + 38);
 
                 $('viz-speed').textContent = '0.0';
+                $('viz-coh').textContent = '0.00';
                 $('viz-dz').textContent = p.maxDeadZone.toFixed(1);
                 $('viz-state').textContent = 'IDLE';
 
@@ -1343,15 +1426,18 @@
                 return;
             }
 
-            // Apply filter
+            // Apply filters — both cores see exactly the same input stream
             const now = performance.now();
-            const result = applyFilter({ x: mouseX, y: mouseY }, now);
-            const dz = result.deadZone !== undefined ? result.deadZone : getParams().maxDeadZone;
-            const speed = result.speed !== undefined ? result.speed : 0;
-            const state = result.state || 'TRACKING';
+            const showV1 = getActive('compare-group') === 'both';
+            const result = v2Filter(mouseX, mouseY, now, getParams());
+            const v1Result = v1Filter(mouseX, mouseY, now, getV1Params());
+
+            const dz = result.deadZone;
+            const state = result.state;
 
             // Update HUD
-            $('viz-speed').textContent = speed.toFixed(1);
+            $('viz-speed').textContent = result.netSpeed.toFixed(1);
+            $('viz-coh').textContent = result.coherence.toFixed(2);
             $('viz-dz').textContent = dz.toFixed(1);
             $('viz-state').textContent = state;
             $('viz-state').style.color = state === 'LOCKED' ? '#d4a017' : '#0bd8b6';
@@ -1359,8 +1445,23 @@
             // Record trails
             rawTrail.push({ x: mouseX, y: mouseY });
             filtTrail.push({ x: result.x, y: result.y });
+            v1Trail.push({ x: v1Result.x, y: v1Result.y });
             if (rawTrail.length > TRAIL_LEN) rawTrail.shift();
             if (filtTrail.length > TRAIL_LEN) filtTrail.shift();
+            if (v1Trail.length > TRAIL_LEN) v1Trail.shift();
+
+            // Draw v1 trail underneath for comparison
+            if (showV1) {
+                for (let i = 1; i < v1Trail.length; i++) {
+                    const a = i / v1Trail.length * 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(v1Trail[i - 1].x, v1Trail[i - 1].y);
+                    ctx.lineTo(v1Trail[i].x, v1Trail[i].y);
+                    ctx.strokeStyle = `rgba(212, 160, 23, ${a})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            }
 
             // Draw raw trail
             for (let i = 1; i < rawTrail.length; i++) {
@@ -1424,9 +1525,13 @@
             ctx.font = '10px JetBrains Mono';
             ctx.textAlign = 'left';
             ctx.fillStyle = 'rgba(226, 232, 240, 0.3)';
-            ctx.fillText('○ Raw input', 12, h - 26);
+            ctx.fillText('○ Raw input', 12, showV1 ? h - 40 : h - 26);
             ctx.fillStyle = 'rgba(11, 216, 182, 0.5)';
-            ctx.fillText('● Filtered output', 12, h - 12);
+            ctx.fillText('● v2 output', 12, showV1 ? h - 26 : h - 12);
+            if (showV1) {
+                ctx.fillStyle = 'rgba(212, 160, 23, 0.5)';
+                ctx.fillText('● v1 output', 12, h - 12);
+            }
 
             requestAnimationFrame(draw);
         }

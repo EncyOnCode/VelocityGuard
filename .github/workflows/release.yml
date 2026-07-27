@@ -1,0 +1,106 @@
+name: Release
+
+# Cutting a release by hand has broken twice already: once with a DownloadUrl pointing at the
+# wrong tag, once with an uppercase SHA256 that OTD rejects. Both values are derived here instead.
+on:
+  push:
+    tags: ['[0-9]+.[0-9]+.[0-9]+', 'v[0-9]+.[0-9]+.[0-9]+']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build a release for'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Resolve version
+        id: version
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Test
+        run: dotnet test tests/VelocityGuard.Tests/VelocityGuard.Tests.csproj -c Release
+
+      - name: Build
+        run: dotnet build VelocityGuard.csproj -c Release
+
+      - name: Package
+        id: package
+        run: |
+          # Only the plugin assembly: the driver provides OpenTabletDriver.Plugin at runtime.
+          cd bin/Release
+          zip -j "$GITHUB_WORKSPACE/VelocityGuard.zip" VelocityGuard.dll
+          cd "$GITHUB_WORKSPACE"
+          # OTD compares this case-sensitively and expects lowercase.
+          SHA=$(sha256sum VelocityGuard.zip | cut -d' ' -f1 | tr 'A-Z' 'a-z')
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Packaged VelocityGuard.zip  sha256=$SHA"
+          unzip -l VelocityGuard.zip
+
+      - name: Update plugin manifest
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          SHA: ${{ steps.package.outputs.sha256 }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib
+
+          version, tag = os.environ['VERSION'], os.environ['TAG']
+          sha, repo = os.environ['SHA'], os.environ['REPO']
+
+          # Path encodes the supported driver version, so discover it rather than hardcoding it.
+          matches = sorted(pathlib.Path('Repository').glob('*/*/*/*.json'))
+          if len(matches) != 1:
+              raise SystemExit(f'expected exactly one manifest, found {matches}')
+          path = matches[0]
+
+          manifest = json.loads(path.read_text())
+          manifest['PluginVersion'] = version
+          manifest['DownloadUrl'] = f'https://github.com/{repo}/releases/download/{tag}/VelocityGuard.zip'
+          manifest['SHA256'] = sha
+          path.write_text(json.dumps(manifest, indent=4) + '\n')
+          print(path.read_text())
+          PY
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: gh release create "$TAG" VelocityGuard.zip --title "$TAG" --generate-notes
+
+      - name: Commit manifest back to the default branch
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if git diff --quiet -- Repository; then
+            echo "Manifest already current, nothing to commit."
+            exit 0
+          fi
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git fetch origin "$DEFAULT_BRANCH"
+          git stash push -- Repository
+          git checkout "$DEFAULT_BRANCH"
+          git pull --ff-only origin "$DEFAULT_BRANCH"
+          git stash pop
+          git add Repository
+          git commit -m "chore: update plugin manifest for $TAG"
+          git push origin "$DEFAULT_BRANCH"

@@ -11,6 +11,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The SDK's default glob would otherwise compile the test project's sources into the plugin. -->
+    <Compile Remove="tests/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Core OTD plugin API — always use the latest stable release -->
     <PackageReference Include="OpenTabletDriver.Plugin" Version="0.6.6.0">
       <ExcludeAssets>runtime</ExcludeAssets>

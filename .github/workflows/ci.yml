@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build plugin
+        run: dotnet build VelocityGuard.csproj -c Release
+
+      - name: Run filter invariant tests
+        run: dotnet test tests/VelocityGuard.Tests/VelocityGuard.Tests.csproj -c Release --verbosity normal
+
+      - name: Check the packaged assembly stands alone
+        # OpenTabletDriver.Plugin is referenced with ExcludeAssets=runtime because the daemon
+        # supplies it. If it ever shows up next to the plugin, the release zip would ship a
+        # duplicate copy of the driver's own API and fail to load.
+        run: |
+          if [ -f bin/Release/OpenTabletDriver.Plugin.dll ]; then
+            echo "::error::OpenTabletDriver.Plugin.dll leaked into the build output"
+            exit 1
+          fi
+          test -f bin/Release/VelocityGuard.dll || { echo "::error::VelocityGuard.dll not produced"; exit 1; }
