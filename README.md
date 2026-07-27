@@ -137,7 +137,7 @@ Output: `bin/Release/VelocityGuard.dll`. Run the filter invariants with:
 dotnet test tests/VelocityGuard.Tests/VelocityGuard.Tests.csproj
 ```
 
-Releases are cut by pushing a version tag; CI builds, tests, packages, and fills in the plugin manifest's download URL and checksum.
+Releases are cut locally with `scripts/release.sh <version>`, which tests, builds, packages, fills in the plugin manifest's download URL and lowercase checksum, publishes, and then re-downloads the published asset to confirm its hash matches what the manifest claims.
 
 ## License
 
