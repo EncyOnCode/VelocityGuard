@@ -13,7 +13,8 @@ netSpeed   = |velocity|                                  ← cancels out chatter
 coherence  = |EMA(v)| / EMA(|v|)                         0 = jitter, 1 = deliberate
 
 t          = clamp(netSpeed / FullSpeedThreshold, 0, 1)
-deadZone   = MaxDeadZone · (1 − t^Curve)
+relief     = 1 − CoherenceRelief · coherence³            ← direction opens the zone too
+deadZone   = MaxDeadZone · (1 − t^Curve) · relief
 
 lead       = direction(velocity) · deadZone · Lead · coherence³
 target     = |input + lead − output| > deadZone
@@ -21,11 +22,13 @@ target     = |input + lead − output| > deadZone
              : output                                    ← hold, chatter suppressed
 ```
 
-Two properties matter most.
+Three properties matter most.
 
 **Net speed, not gross speed.** Chatter oscillates about a point, so its velocity vectors cancel and `netSpeed` stays near zero no matter how violently the sensor jitters. Measuring the *magnitude of each step* instead — as v1 did — lets sustained chatter inflate the speed estimate and open the very dead zone meant to catch it.
 
 **The dead zone drags rather than gates.** The output trails the pen by exactly `deadZone` along the direction of travel. At the boundary, `input − direction·deadZone` is identically the current output, so movement starts from zero instead of jumping. That single change is what removes the stair-stepping on slow aim and the jolt where the filter hands over to raw passthrough.
+
+**Direction, not just speed, opens the zone.** Speed alone cannot tell a deliberate 2 px correction from 2 px of chatter — both are slow and small. Left at that, the zone imposes a fixed positional offset that a small movement never escapes: measured, a 1 px nudge delivered only 26% of itself, permanently. `CoherenceRelief` lets consistently-directed movement shrink the zone at any speed, which recovers small corrections without letting jitter through, because jitter has no consistent direction to begin with.
 
 | Situation | Dead zone | Output |
 |-----------|-----------|--------|
@@ -42,6 +45,8 @@ Both versions driven with identical synthetic input. Lower is better except wher
 | Cursor drift while pen held still, ±1.5 px sensor noise | 299 px | **0.18 px** |
 | Slow aim with ±2 px tremor — path travelled vs. path intended | 4.4–5.1× | **1.16–1.21×** |
 | Largest output step ÷ input step on slow movement | 11× | **1.0×** |
+| Fraction of a deliberate 1 px correction reaching the output | 0.26 (v2.0) | **0.81** |
+| Fraction of a deliberate 2 px correction reaching the output | 0.63 (v2.0) | **0.91** |
 | Disagreement between 125 / 250 / 1000 Hz report rates | 1.38 px | **0.27 px** |
 | Position error at 10 px/ms | 0 px | 0 px |
 | Recovery after a pen lift | 139 px off | **exact** |
@@ -58,6 +63,7 @@ Reproduce with `dotnet test`; the same figures back the thresholds in [tests/Vel
 | **Velocity Smooth** | 4 ms | 0–20 | Time constant of the velocity estimate |
 | **Output Smooth** | 0 ms | 0–8 | Optional extra smoothing; off by default |
 | **Lead** | 0.75 | 0–1 | Fraction of the dead-zone offset cancelled on coherent movement |
+| **Coherence Relief** | 0.75 | 0–1 | How far consistently-directed movement shrinks the dead zone, at any speed |
 
 Settings are in **screen pixels**, because the filter runs at `PostTransform` where coordinates are already mapped to the display. Changing tablet area or resolution changes what these numbers mean physically — retune after either.
 
@@ -68,6 +74,7 @@ Settings are in **screen pixels**, because the filter runs at `PostTransform` wh
 - **Jumps feel filtered?** → lower `Full Speed Threshold` (3–4 px/ms)
 - **Snappier response?** → lower `Curve` (0.4–0.7)
 - **Cursor trails behind?** → raise `Lead`. Unlike a conventional prediction term it is bounded by the dead zone, so it cannot overshoot on direction changes, and it switches itself off when movement stops being coherent.
+- **Small corrections not registering?** → raise `Coherence Relief` towards 1.0. At 1.0 the zone collapses entirely on movement it judges fully coherent, so nothing deliberate is lost; the default keeps a quarter of the zone in reserve, because real chatter can have a preferred direction and partly pass for intent.
 - **`Output Smooth` is off by default on purpose.** Against synthetic chatter it produced no measurable smoothness gain while costing tracking lag and report-rate consistency. It remains as an escape hatch for hardware whose noise the dead zone alone does not settle.
 
 ### Presets
@@ -80,6 +87,7 @@ Settings are in **screen pixels**, because the filter runs at `PostTransform` wh
 | Velocity Smooth | 4 ms | 6 ms | 4 ms |
 | Output Smooth | 0 ms | 0 ms | 0 ms |
 | Lead | 0.75 | 0.5 | 0.75 |
+| Coherence Relief | 0.75 | 0.6 | 0.75 |
 
 Scaled for area and chatter severity by the [settings calculator](https://encyoncode.github.io/VelocityGuard/), which also runs both filter versions side by side on your own cursor movement.
 

@@ -120,7 +120,15 @@ public sealed class VelocityGuardCore
 
         float t = Math.Clamp(NetSpeed / threshold, 0f, 1f);
         float shaped = MathF.Pow(t, MathF.Max(settings.Curve, MinCurve));
-        DeadZone = maxDeadZone * (1f - shaped);
+
+        // Coherence relief: directed movement opens the zone even when it is far too slow to do so
+        // on speed alone. Speed and amplitude cannot tell a deliberate 2 px correction from 2 px of
+        // chatter, so without this the zone imposes a fixed positional offset of
+        // DeadZone * (1 - Lead) that a small movement never escapes — measured, a 1 px nudge
+        // delivered 26% of itself and a 2 px one 63%, permanently.
+        float coherenceCubed = Coherence * Coherence * Coherence;
+        float relief = 1f - Math.Clamp(settings.CoherenceRelief, 0f, 1f) * coherenceCubed;
+        DeadZone = maxDeadZone * (1f - shaped) * MathF.Max(relief, 0f);
 
         // ── 4. Lead: cancel part of the offset the dead zone is about to impose ──
         // The magnitude is tied to DeadZone rather than to speed. A speed-proportional lead grows
@@ -133,8 +141,7 @@ public sealed class VelocityGuardCore
             float speedMagnitude = _velocity.Length();
             if (speedMagnitude > Epsilon)
             {
-                float gate = Coherence * Coherence * Coherence;
-                float magnitude = DeadZone * Math.Clamp(settings.Lead, 0f, 1f) * gate;
+                float magnitude = DeadZone * Math.Clamp(settings.Lead, 0f, 1f) * coherenceCubed;
                 effective = input + _velocity * (magnitude / speedMagnitude);
             }
         }

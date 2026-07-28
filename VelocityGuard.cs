@@ -49,6 +49,10 @@ public class VelocityGuard : IPositionedPipelineElement<IDeviceReport>
     [SliderProperty("Lead", 0f, 1f, 0.75f)]
     public float Lead { get; set; } = 0.75f;
 
+    /// <summary>How far directed movement shrinks the dead zone regardless of speed. 0 = v2.0 behaviour.</summary>
+    [SliderProperty("Coherence Relief", 0f, 1f, 0.75f)]
+    public float CoherenceRelief { get; set; } = 0.75f;
+
     // ─── Pipeline position ──────────────────────────────────────────────────
 
     /// <summary>
@@ -101,7 +105,8 @@ public class VelocityGuard : IPositionedPipelineElement<IDeviceReport>
             Curve = Curve,
             VelocitySmoothMs = VelocitySmoothMs,
             OutputSmoothMs = OutputSmoothMs,
-            Lead = Lead
+            Lead = Lead,
+            CoherenceRelief = CoherenceRelief
         };
 
         return _core.Filter(input, dtMs, in settings);

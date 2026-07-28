@@ -210,6 +210,36 @@ public class FilterInvariantTests
         }
     }
 
+    // ── A deliberate correction must survive the dead zone, however small it is ──
+    // Speed and amplitude cannot separate a 2 px correction from 2 px of chatter, so before
+    // CoherenceRelief the zone left a permanent offset of DeadZone * (1 - Lead) that small
+    // movements never escaped. Direction is what separates them.
+    //                     distance  floor    relief=0   relief=0.75
+    [Theory]
+    [InlineData(1f, 0.70f)]   //     0.26       0.81
+    [InlineData(2f, 0.85f)]   //     0.63       0.91
+    [InlineData(3f, 0.88f)]   //     0.75       0.94
+    [InlineData(10f, 0.95f)]  //     0.93       0.98
+    public void SmallDeliberateMovement_ReachesTheOutput(float distancePx, float minSurvival)
+    {
+        float survival = Signals.MicroMovementSurvival(Signals.Baseline, distancePx);
+        Assert.InRange(survival, minSurvival, 1.05f);
+    }
+
+    [Fact]
+    public void CoherenceRelief_DoesNotUndoChatterSuppression()
+    {
+        var without = Signals.Baseline; without.CoherenceRelief = 0f;
+        var with = Signals.Baseline; with.CoherenceRelief = 1f;
+
+        // Relief keys off direction, and chatter has none — so opening the zone for coherent
+        // movement must not open it for jitter. Measured, relief actually improves this case.
+        float leakWithout = Signals.ChatterLeak(new VelocityGuardCore(), in without, 1.5f);
+        float leakWith = Signals.ChatterLeak(new VelocityGuardCore(), in with, 1.5f);
+
+        Assert.InRange(leakWith, 0f, MathF.Max(leakWithout, 0.05f) * 1.5f);
+    }
+
     // ── The behaviour that motivated v2: slow aim with tremor riding on it ──
     [Fact]
     public void SlowAimWithTremor_TracksNearlyStraight()

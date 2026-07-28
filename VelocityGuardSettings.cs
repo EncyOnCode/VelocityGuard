@@ -34,6 +34,13 @@ public struct VelocityGuardSettings
     public float Lead;
 
     /// <summary>
+    /// How much directed movement is allowed to shrink the dead zone, 0..1, independently of speed.
+    /// 0 reproduces v2.0 behaviour, where a small deliberate correction never fully escaped the
+    /// zone's positional offset. 1 collapses the zone entirely on movement judged fully coherent.
+    /// </summary>
+    public float CoherenceRelief;
+
+    /// <summary>
     /// Defaults chosen from measured behaviour rather than carried over from v1.
     /// <para>
     /// <see cref="FullSpeedThreshold"/> is lower than v1's 12 because it is now fed net speed,
@@ -49,6 +56,7 @@ public struct VelocityGuardSettings
         Curve = 1f,
         VelocitySmoothMs = 4f,
         OutputSmoothMs = 0f,
-        Lead = 0.75f
+        Lead = 0.75f,
+        CoherenceRelief = 0.75f
     };
 }

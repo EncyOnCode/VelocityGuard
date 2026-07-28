@@ -36,8 +36,33 @@ internal static class Signals
         Curve = 0.6f,
         VelocitySmoothMs = 4f,
         OutputSmoothMs = 0f,
-        Lead = 0.75f
+        Lead = 0.75f,
+        CoherenceRelief = 0.75f
     };
+
+    /// <summary>
+    /// A small deliberate correction made from rest, then held. Returns the fraction of it that
+    /// reached the output — 1.0 means fully delivered, 0.0 means entirely swallowed by the dead zone.
+    /// </summary>
+    internal static float MicroMovementSurvival(in VelocityGuardSettings settings,
+        float distancePx, float durationMs = 600f, float dtMs = 4f)
+    {
+        var core = new VelocityGuardCore();
+        int steps = (int)(durationMs / dtMs);
+        float step = distancePx / steps;
+
+        var output = new Vector2(500f, 500f);
+        for (int i = 0; i < 50; i++)
+            output = core.Filter(new Vector2(500f, 500f), dtMs, in settings);
+
+        float startX = output.X;
+        for (int i = 1; i <= steps; i++)
+            output = core.Filter(new Vector2(500f + i * step, 500f), dtMs, in settings);
+        for (int i = 0; i < 50; i++)
+            output = core.Filter(new Vector2(500f + distancePx, 500f), dtMs, in settings);
+
+        return (output.X - startX) / distancePx;
+    }
 
     /// <summary>Total distance travelled by a sequence of points.</summary>
     internal static float PathLength(IReadOnlyList<Vector2> points)
