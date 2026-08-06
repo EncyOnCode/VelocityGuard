@@ -13,7 +13,7 @@ netSpeed   = |velocity|                                  ← cancels out chatter
 coherence  = |EMA(v)| / EMA(|v|)                         0 = jitter, 1 = deliberate
 
 t          = clamp(netSpeed / FullSpeedThreshold, 0, 1)
-curve      = ln(0.5) / ln(HalfSpeedThreshold / FullSpeedThreshold)
+curve      = ln(1 − ZoneAtKneeSpeed) / ln(KneeSpeed / FullSpeedThreshold)
 relief     = 1 − CoherenceRelief · coherence³            ← direction opens the zone too
 deadZone   = MaxDeadZone · (1 − t^curve) · relief
 
@@ -60,13 +60,16 @@ Reproduce with `dotnet test`; the same figures back the thresholds in [tests/Vel
 |-----------|---------|-------|-------------|
 | **Max Dead Zone** | 4 px | 0–20 | Dead-zone radius when the pen shows no net movement |
 | **Full Speed Threshold** | 6 px/ms | 0.5–50 | Net speed at which the dead zone reaches zero |
-| **Half Speed Threshold** | 3 px/ms | 0.1–25 | Net speed at which the dead zone is *half* of Max Dead Zone |
+| **Knee Speed** | 3 px/ms | 0.1–25 | Net speed at which the dead zone is Zone At Knee Speed of Max Dead Zone |
+| **Zone At Knee Speed** | 0.5 | 0.01–0.99 | How much of the dead zone is left at Knee Speed |
 | **Velocity Smooth** | 4 ms | 0–20 | Time constant of the velocity estimate |
 | **Output Smooth** | 0 ms | 0–8 | Optional extra smoothing; off by default |
 | **Lead** | 0.75 | 0–1 | Fraction of the dead-zone offset cancelled on coherent movement |
 | **Coherence Relief** | 0.75 | 0–1 | How far consistently-directed movement shrinks the dead zone, at any speed |
 
-The two speed thresholds are the shape of the filter between them: **Half Speed** is where it is at half strength, **Full Speed** is where it is fully out of the way. Setting Half Speed close behind Full Speed keeps real smoothing alive through fast movement while the mid range only pays a fraction of the zone; setting it low collapses the zone early and hands almost everything through. Half of the Full Speed Threshold gives a plain linear decay.
+The dead zone is fixed at its two ends — `Max Dead Zone` at rest, exactly zero at `Full Speed Threshold`. **Knee Speed** and **Zone At Knee Speed** name one point in between that the curve must pass through, and that is what sets its shape: "at 8 px/ms I still want 40% of the zone" is `Knee Speed = 8`, `Zone At Knee Speed = 0.4`.
+
+Reading them separately: Knee Speed moves the bend left or right, Zone At Knee Speed moves it up or down. Putting the knee close behind Full Speed keeps real smoothing alive through fast movement while the mid range pays only a fraction of the zone; putting it low collapses the zone early and hands almost everything through. `Zone At Knee Speed = 0.5` at half the Full Speed Threshold is a plain linear decay.
 
 Settings are in **screen pixels**, because the filter runs at `PostTransform` where coordinates are already mapped to the display. Changing tablet area or resolution changes what these numbers mean physically — retune after either.
 
@@ -75,8 +78,9 @@ Settings are in **screen pixels**, because the filter runs at `PostTransform` wh
 - **Chatter still getting through?** → raise `Max Dead Zone` (5–8 px)
 - **Slow aim feels sticky?** → lower `Max Dead Zone` (2–3 px), or raise `Lead` towards 1.0
 - **Jumps feel filtered?** → lower `Full Speed Threshold` (3–4 px/ms)
-- **Snappier response?** → lower `Half Speed Threshold` to around a quarter of `Full Speed Threshold`
-- **Streams come out completely unfiltered, but raising `Full Speed Threshold` over-smooths normal aim?** → raise `Full Speed Threshold` past your stream speed *and* raise `Half Speed Threshold` close behind it. The zone then still has substance at stream speed while mid-speed aim keeps only a small fraction of it — which a single "fully off" threshold could not express, since it forced everything below it to be smoothed proportionally harder.
+- **Snappier response?** → lower `Knee Speed` to around a quarter of `Full Speed Threshold`, or drop `Zone At Knee Speed` below 0.5
+- **Streams come out completely unfiltered, but raising `Full Speed Threshold` over-smooths normal aim?** → raise `Full Speed Threshold` past your stream speed *and* raise `Knee Speed` close behind it. The zone then still has substance at stream speed while mid-speed aim keeps only a small fraction of it — which a single "fully off" threshold could not express, since it forced everything below it to be smoothed proportionally harder.
+- **Knee is at the right speed but the amount there is wrong?** → that is exactly what `Zone At Knee Speed` is for. Raise it towards 0.9 to hold almost the whole zone up to `Knee Speed` and then drop it sharply; lower it towards 0.1 to shed most of the zone early and trail the rest off gently. Neither end changes where the filter turns off entirely — that stays `Full Speed Threshold`.
 - **Cursor trails behind?** → raise `Lead`. Unlike a conventional prediction term it is bounded by the dead zone, so it cannot overshoot on direction changes, and it switches itself off when movement stops being coherent.
 - **Small corrections not registering?** → raise `Coherence Relief` towards 1.0. At 1.0 the zone collapses entirely on movement it judges fully coherent, so nothing deliberate is lost; the default keeps a quarter of the zone in reserve, because real chatter can have a preferred direction and partly pass for intent.
 - **`Output Smooth` is off by default on purpose.** Against synthetic chatter it produced no measurable smoothness gain while costing tracking lag and report-rate consistency. It remains as an escape hatch for hardware whose noise the dead zone alone does not settle.
@@ -87,7 +91,8 @@ Settings are in **screen pixels**, because the filter runs at `PostTransform` wh
 |-----------|-------|---------|-----------|
 | Max Dead Zone | 3 px | 5 px | 4 px |
 | Full Speed Threshold | 4 px/ms | 8 px/ms | 6 px/ms |
-| Half Speed Threshold | 1.3 px/ms | 4.5 px/ms | 3 px/ms |
+| Knee Speed | 1.3 px/ms | 4.5 px/ms | 3 px/ms |
+| Zone At Knee Speed | 0.5 | 0.5 | 0.5 |
 | Velocity Smooth | 4 ms | 6 ms | 4 ms |
 | Output Smooth | 0 ms | 0 ms | 0 ms |
 | Lead | 0.75 | 0.5 | 0.75 |
@@ -107,11 +112,20 @@ Scaled for area and chatter severity by the [settings calculator](https://encyon
 
 `Full Speed Threshold` keeps its name but now measures net rather than gross speed, and wants **roughly half** its old value.
 
-## Upgrading from v2.0/v2.1
+## Upgrading from v2.0–v2.2
 
-`Curve` is gone, replaced by `Half Speed Threshold` — the same decay shape stated as a speed instead of a raw exponent. It is a rename rather than a reused key, so that a saved `Curve` of 0.6 is not read back as 0.6 px/ms; **this one setting resets, the rest carry over.** To reproduce an old value: `HalfSpeedThreshold = FullSpeedThreshold · 0.5^(1/Curve)`, so the old default `Curve = 1.0` at `Full Speed Threshold = 6` is `Half Speed Threshold = 3`.
+`Curve` is gone. The decay shape is now stated as a point the curve passes through — `Knee Speed` and `Zone At Knee Speed` — rather than as a raw exponent, because the exponent could not express what the filter was actually being asked for: keeping smoothing alive through fast streaming while leaving mid-speed aim light needs values around 3 and above, which sat outside the old slider's range and meant nothing as numbers.
 
-The exponent was replaced because it could not express what the filter was actually being asked for: keeping smoothing alive through fast streaming while leaving mid-speed aim light needs values around 3 and above, which sat outside the old slider's range and meant nothing as numbers.
+**Only these shape settings reset; everything else carries over.** They are renames rather than reused keys, so a saved `Curve` of 0.6 is never read back as 0.6 px/ms.
+
+| Coming from | What to enter |
+|---|---|
+| v2.0 / v2.1 `Curve` | `Knee Speed = FullSpeedThreshold · 0.5^(1/Curve)`, `Zone At Knee Speed = 0.5` |
+| v2.2 `Half Speed Threshold` | `Knee Speed` = the same number, `Zone At Knee Speed = 0.5` |
+
+Defaults are unchanged in behaviour throughout: `Curve = 1.0` at `Full Speed Threshold = 6` is `Knee Speed = 3` at `Zone At Knee Speed = 0.5`.
+
+v2.2 named this knob `Half Speed Threshold`, which stopped being true once the fraction became tunable — hence one further rename, to `Knee Speed`, rather than a key called "half speed" that is not a half speed.
 
 ## Comparison with other filters
 

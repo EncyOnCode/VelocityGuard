@@ -35,7 +35,8 @@ internal static class Signals
         FullSpeedThreshold = 4f,
         // 4 * 0.5^(1/0.6) — the half-zone speed of the Curve = 0.6 baseline every threshold below
         // was measured against, so the recorded figures stay comparable across the reparameterisation.
-        HalfSpeedThreshold = 1.259921f,
+        KneeSpeed = 1.259921f,
+        ZoneAtKneeSpeed = 0.5f,
         VelocitySmoothMs = 4f,
         OutputSmoothMs = 0f,
         Lead = 0.75f,

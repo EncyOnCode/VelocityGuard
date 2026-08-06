@@ -14,12 +14,20 @@ public struct VelocityGuardSettings
     public float FullSpeedThreshold;
 
     /// <summary>
-    /// Net speed (px/ms) at which the dead zone is half of <see cref="MaxDeadZone"/>. Sets the shape of
-    /// the decay between rest and <see cref="FullSpeedThreshold"/>: values near the threshold keep
-    /// smoothing alive through fast movement, low values collapse the zone early. Clamped into
+    /// Net speed (px/ms) at which the dead zone is <see cref="ZoneAtKneeSpeed"/> of
+    /// <see cref="MaxDeadZone"/>. Together the two name one point the decay curve must pass through,
+    /// which is what fixes its shape between rest and <see cref="FullSpeedThreshold"/>. Clamped into
     /// (0, FullSpeedThreshold) internally.
     /// </summary>
-    public float HalfSpeedThreshold;
+    public float KneeSpeed;
+
+    /// <summary>
+    /// Fraction of <see cref="MaxDeadZone"/> still in effect at <see cref="KneeSpeed"/>, 0..1.
+    /// 0.5 is the plain half-way knee; higher keeps more of the zone up to that speed and then drops
+    /// it sharply, lower sheds most of the zone early and trails off. Clamped away from both ends
+    /// internally, since neither 0 nor 1 describes a finite curve.
+    /// </summary>
+    public float ZoneAtKneeSpeed;
 
     /// <summary>Time constant (ms) of the velocity estimator. Higher = steadier speed, slower to react.</summary>
     public float VelocitySmoothMs;
@@ -54,15 +62,17 @@ public struct VelocityGuardSettings
     /// keeping v2's smoothness; <see cref="OutputSmoothMs"/> defaults off for the reason above.
     /// </para>
     /// <para>
-    /// <see cref="HalfSpeedThreshold"/> defaults to half of <see cref="FullSpeedThreshold"/>, which is
-    /// exactly the linear decay v2.0–2.1 produced at <c>Curve = 1</c>.
+    /// <see cref="KneeSpeed"/> defaults to half of <see cref="FullSpeedThreshold"/> at
+    /// <see cref="ZoneAtKneeSpeed"/> 0.5, which is exactly the linear decay v2.0–2.1 produced at
+    /// <c>Curve = 1</c>.
     /// </para>
     /// </summary>
     public static VelocityGuardSettings Default => new()
     {
         MaxDeadZone = 4f,
         FullSpeedThreshold = 6f,
-        HalfSpeedThreshold = 3f,
+        KneeSpeed = 3f,
+        ZoneAtKneeSpeed = 0.5f,
         VelocitySmoothMs = 4f,
         OutputSmoothMs = 0f,
         Lead = 0.75f,

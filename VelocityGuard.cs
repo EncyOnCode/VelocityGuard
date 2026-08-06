@@ -25,9 +25,15 @@ public class VelocityGuard : IPositionedPipelineElement<IDeviceReport>
     // and meaning, so reusing their names would have silently reinterpreted saved values rather
     // than resetting them. v1 settings do not carry over.
     //
-    // v2.2 renames Curve to HalfSpeedThreshold for the same reason: it is the same decay shape
+    // v2.2 renamed Curve to HalfSpeedThreshold for the same reason: it is the same decay shape
     // expressed as a speed in px/ms instead of a raw exponent, so a saved Curve of 0.6 would have
     // been read as 0.6 px/ms — a wildly different filter. That setting resets rather than carries.
+    //
+    // v2.3 renames it again, to KneeSpeed, because the zone fraction at that speed is now tunable
+    // and "half" is no longer true of it. Keeping the old name would have left a key called
+    // HalfSpeedThreshold that is not a half-speed threshold whenever ZoneAtKneeSpeed != 0.5 — the
+    // exact trap the rule above exists to avoid. Numerically the value means the same thing, so the
+    // reset costs a re-entry of one slider, and only for the day 2.2.0 was current.
 
     /// <summary>Dead-zone radius (screen pixels) when the pen shows no net movement.</summary>
     [SliderProperty("Max Dead Zone", 0f, 20f, 4f), Unit("px")]
@@ -37,9 +43,13 @@ public class VelocityGuard : IPositionedPipelineElement<IDeviceReport>
     [SliderProperty("Full Speed Threshold", 0.5f, 50f, 6f), Unit("px/ms")]
     public float FullSpeedThreshold { get; set; } = 6f;
 
-    /// <summary>Net speed at which the dead zone is half of Max Dead Zone. Shapes the decay up to the threshold.</summary>
-    [SliderProperty("Half Speed Threshold", 0.1f, 25f, 3f), Unit("px/ms")]
-    public float HalfSpeedThreshold { get; set; } = 3f;
+    /// <summary>Net speed at which the dead zone is Zone At Knee Speed of Max Dead Zone.</summary>
+    [SliderProperty("Knee Speed", 0.1f, 25f, 3f), Unit("px/ms")]
+    public float KneeSpeed { get; set; } = 3f;
+
+    /// <summary>How much of the dead zone is left at Knee Speed. 0.5 is a plain half-way knee.</summary>
+    [SliderProperty("Zone At Knee Speed", 0.01f, 0.99f, 0.5f)]
+    public float ZoneAtKneeSpeed { get; set; } = 0.5f;
 
     /// <summary>Time constant of the velocity estimator. Higher reacts more slowly but more steadily.</summary>
     [SliderProperty("Velocity Smooth", 0f, 20f, 4f), Unit("ms")]
@@ -106,7 +116,8 @@ public class VelocityGuard : IPositionedPipelineElement<IDeviceReport>
         {
             MaxDeadZone = MaxDeadZone,
             FullSpeedThreshold = FullSpeedThreshold,
-            HalfSpeedThreshold = HalfSpeedThreshold,
+            KneeSpeed = KneeSpeed,
+            ZoneAtKneeSpeed = ZoneAtKneeSpeed,
             VelocitySmoothMs = VelocitySmoothMs,
             OutputSmoothMs = OutputSmoothMs,
             Lead = Lead,

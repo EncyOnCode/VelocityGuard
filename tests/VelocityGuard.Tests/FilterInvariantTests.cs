@@ -131,9 +131,11 @@ public class FilterInvariantTests
             {
                 MaxDeadZone = prng.Next(0f, 20f),
                 FullSpeedThreshold = prng.Next(0.5f, 50f),
-                // Deliberately past the slider's 0.1–25: a half speed at or above the full-speed
-                // threshold, or at zero, both drive the derived exponent to an infinity if unclamped.
-                HalfSpeedThreshold = prng.Next(0f, 60f),
+                // Deliberately past both sliders' ranges: a knee at or above the full-speed threshold
+                // or at zero, and a zone fraction of exactly none or all of it, each drive the derived
+                // exponent to an infinity if unclamped.
+                KneeSpeed = prng.Next(0f, 60f),
+                ZoneAtKneeSpeed = prng.Next(0f, 1f),
                 VelocitySmoothMs = prng.Next(0f, 20f),
                 OutputSmoothMs = prng.Next(0f, 8f),
                 Lead = prng.Next(0f, 1f)
@@ -269,43 +271,73 @@ public class FilterInvariantTests
         Assert.InRange(excess, 0f, 1.6f);
     }
 
-    // ── The knob must mean literally what its name says ──
-    // Half Speed Threshold replaced the raw Curve exponent so the number could be read directly off
-    // a movement speed. That only holds if the zone really is half-height at exactly that speed.
+    // ── The two knobs must name a point the curve actually passes through ──
+    // Knee Speed and Zone At Knee Speed replaced the raw Curve exponent so the shape could be stated
+    // in coordinates that mean something. That is only true if the curve really does pass through the
+    // stated point — for any pairing of the two, not just the half-way default.
     [Theory]
-    [InlineData(1f)]
-    [InlineData(3f)]
-    [InlineData(5f)]
-    [InlineData(9f)]
-    public void AtHalfSpeedThreshold_DeadZoneIsHalfOfMax(float halfSpeed)
+    [InlineData(1f, 0.5f)]
+    [InlineData(3f, 0.5f)]
+    [InlineData(9f, 0.5f)]
+    [InlineData(3f, 0.1f)]    // sheds most of the zone well before the knee
+    [InlineData(3f, 0.9f)]    // holds nearly the whole zone to the knee, then drops
+    [InlineData(8f, 0.25f)]
+    [InlineData(1.5f, 0.75f)]
+    public void AtKneeSpeed_DeadZoneIsTheStatedFractionOfMax(float kneeSpeed, float zoneAtKnee)
     {
         var settings = Signals.Baseline;
         settings.MaxDeadZone = 4f;
         settings.FullSpeedThreshold = 10f;
-        settings.HalfSpeedThreshold = halfSpeed;
+        settings.KneeSpeed = kneeSpeed;
+        settings.ZoneAtKneeSpeed = zoneAtKnee;
         settings.CoherenceRelief = 0f; // steady motion is fully coherent; relief would scale the result
 
-        Assert.Equal(2f, SteadyDeadZone(in settings, halfSpeed), 2);
+        Assert.Equal(4f * zoneAtKnee, SteadyDeadZone(in settings, kneeSpeed), 2);
     }
 
-    // Raising the half speed must hold the zone open longer at every speed below the threshold —
-    // this is the lever for keeping smoothing alive through fast movement without over-smoothing
-    // the mid range, which a single "fully off" threshold could not offer.
+    // At a fixed knee speed, asking for more zone there must give more zone there — the fraction has
+    // to be a real lever and not merely a relabelling of the knee position.
     [Fact]
-    public void RaisingHalfSpeed_HoldsTheZoneOpenLongerButStillPassesThroughAtFullSpeed()
+    public void RaisingZoneAtKnee_HoldsMoreOfTheZone()
     {
         var settings = Signals.Baseline;
         settings.MaxDeadZone = 4f;
         settings.FullSpeedThreshold = 10f;
+        settings.KneeSpeed = 5f;
         settings.CoherenceRelief = 0f;
 
         float previous = -1f;
-        foreach (float halfSpeed in new[] { 1f, 2f, 3f, 5f, 7f, 9f })
+        foreach (float fraction in new[] { 0.1f, 0.25f, 0.5f, 0.75f, 0.9f })
         {
-            settings.HalfSpeedThreshold = halfSpeed;
+            settings.ZoneAtKneeSpeed = fraction;
+
+            float zone = SteadyDeadZone(in settings, 5f);
+            Assert.True(zone > previous, $"zone at the knee did not grow at fraction {fraction}");
+            previous = zone;
+
+            Assert.Equal(0f, SteadyDeadZone(in settings, settings.FullSpeedThreshold));
+        }
+    }
+
+    // Raising the knee speed must hold the zone open longer at every speed below the threshold —
+    // this is the lever for keeping smoothing alive through fast movement without over-smoothing
+    // the mid range, which a single "fully off" threshold could not offer.
+    [Fact]
+    public void RaisingKneeSpeed_HoldsTheZoneOpenLongerButStillPassesThroughAtFullSpeed()
+    {
+        var settings = Signals.Baseline;
+        settings.MaxDeadZone = 4f;
+        settings.FullSpeedThreshold = 10f;
+        settings.ZoneAtKneeSpeed = 0.5f;
+        settings.CoherenceRelief = 0f;
+
+        float previous = -1f;
+        foreach (float kneeSpeed in new[] { 1f, 2f, 3f, 5f, 7f, 9f })
+        {
+            settings.KneeSpeed = kneeSpeed;
 
             float zone = SteadyDeadZone(in settings, 6f);
-            Assert.True(zone > previous, $"zone at 6 px/ms did not grow at half speed {halfSpeed}");
+            Assert.True(zone > previous, $"zone at 6 px/ms did not grow at knee speed {kneeSpeed}");
             previous = zone;
 
             // Whatever the shape, the zone still reaches exactly zero at the threshold, which is

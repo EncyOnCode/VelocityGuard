@@ -120,7 +120,7 @@ public sealed class VelocityGuardCore
         float maxDeadZone = MathF.Max(settings.MaxDeadZone, 0f);
 
         float t = Math.Clamp(NetSpeed / threshold, 0f, 1f);
-        float shaped = MathF.Pow(t, CurveFor(settings.HalfSpeedThreshold, threshold));
+        float shaped = MathF.Pow(t, CurveFor(settings.KneeSpeed, settings.ZoneAtKneeSpeed, threshold));
 
         // Coherence relief: directed movement opens the zone even when it is far too slow to do so
         // on speed alone. Speed and amplitude cannot tell a deliberate 2 px correction from 2 px of
@@ -198,21 +198,27 @@ public sealed class VelocityGuardCore
     }
 
     /// <summary>
-    /// Decay exponent placing the dead zone at half of <see cref="VelocityGuardSettings.MaxDeadZone"/>
-    /// when net speed reaches <paramref name="halfSpeed"/>, and at zero when it reaches
-    /// <paramref name="threshold"/>. Solving <c>1 - (h/T)^C = 0.5</c> gives <c>C = ln(0.5)/ln(h/T)</c>.
+    /// Decay exponent placing the dead zone at <paramref name="zoneAtKnee"/> of
+    /// <see cref="VelocityGuardSettings.MaxDeadZone"/> when net speed reaches
+    /// <paramref name="kneeSpeed"/>, and at zero when it reaches <paramref name="threshold"/>.
+    /// Solving <c>1 - (k/T)^C = z</c> gives <c>C = ln(1 - z)/ln(k/T)</c>.
     /// </summary>
     /// <remarks>
-    /// This is a reparameterisation of v2's raw <c>Curve</c> exponent, not a change to the shape it can
-    /// produce. The exponent alone could not be tuned usefully: keeping smoothing alive through fast
-    /// streaming while leaving mid-speed aim light needs values around 3 and above, which are opaque as
-    /// numbers and sat outside the old slider's range. Both endpoints of the ratio send the exponent to
-    /// an infinity, so it is clamped strictly inside (0,1) before the logarithm.
+    /// The user states one point the curve must pass through — a speed and how much zone is left there —
+    /// and the exponent follows. This is still the same single-exponent decay family v2 shipped, only
+    /// stated in coordinates that mean something: the exponent alone could not be tuned usefully, since
+    /// keeping smoothing alive through fast streaming while leaving mid-speed aim light needs values
+    /// around 3 and above, which are opaque as numbers and sat outside the old slider's range.
+    /// <para>
+    /// Both arguments are clamped strictly inside (0,1) as fractions before the logarithms: a knee at
+    /// rest or at the threshold, and a zone of none or all of it, each send the exponent to an infinity.
+    /// </para>
     /// </remarks>
-    private static float CurveFor(float halfSpeed, float threshold)
+    private static float CurveFor(float kneeSpeed, float zoneAtKnee, float threshold)
     {
-        float ratio = Math.Clamp(halfSpeed / threshold, 0.01f, 0.99f);
-        return Math.Clamp(MathF.Log(0.5f) / MathF.Log(ratio), MinCurve, MaxCurve);
+        float ratio = Math.Clamp(kneeSpeed / threshold, 0.01f, 0.99f);
+        float remaining = Math.Clamp(zoneAtKnee, 0.01f, 0.99f);
+        return Math.Clamp(MathF.Log(1f - remaining) / MathF.Log(ratio), MinCurve, MaxCurve);
     }
 
     /// <summary>

@@ -770,7 +770,7 @@
             <div class="logo">
                 <span class="logo-mark">▸</span>
                 <span>VELOCITY<span class="logo-accent">GUARD</span></span>
-                <span class="logo-ver">v2.2</span>
+                <span class="logo-ver">v2.3</span>
             </div>
             <nav>
                 <a href="#calculator">Calculator</a>
@@ -859,11 +859,20 @@
 
                     <div class="slider-group">
                         <div class="slider-header">
-                            <label>Half Speed Threshold</label>
-                            <span class="slider-value" id="v-hsp">3.0</span>
+                            <label>Knee Speed</label>
+                            <span class="slider-value" id="v-kns">3.0</span>
                             <span class="slider-unit">px/ms</span>
                         </div>
-                        <input type="range" id="s-hsp" min="0.1" max="25" step="0.1" value="3">
+                        <input type="range" id="s-kns" min="0.1" max="25" step="0.1" value="3">
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <label>Zone At Knee Speed</label>
+                            <span class="slider-value" id="v-zak">0.50</span>
+                            <span class="slider-unit"></span>
+                        </div>
+                        <input type="range" id="s-zak" min="0.01" max="0.99" step="0.01" value="0.5">
                     </div>
 
                     <div class="slider-group">
@@ -962,18 +971,27 @@
                 </div>
                 <div class="ref-card">
                     <div class="ref-problem"><span class="ref-arrow">→</span> Want snappier response?</div>
-                    <div class="ref-solution">Decrease <strong>Half Speed Threshold</strong> to around a
-                        quarter of your Full Speed Threshold — the zone then collapses early instead of
-                        holding on into mid-speed movement</div>
+                    <div class="ref-solution">Decrease <strong>Knee Speed</strong> to around a quarter of
+                        your Full Speed Threshold, or drop <strong>Zone At Knee Speed</strong> below 0.5 —
+                        the zone then collapses early instead of holding on into mid-speed movement</div>
                 </div>
                 <div class="ref-card">
                     <div class="ref-problem"><span class="ref-arrow">→</span> Streams get no smoothing at all,
                         but raising the threshold over-smooths normal aim?</div>
                     <div class="ref-solution">Raise <strong>Full Speed Threshold</strong> past your stream
-                        speed, then raise <strong>Half Speed Threshold</strong> close behind it. Smoothing
-                        stays alive through fast movement while the mid range keeps only a fraction of the
-                        zone — one knob sets where the filter is at half strength, the other where it is
-                        fully out of the way</div>
+                        speed, then raise <strong>Knee Speed</strong> close behind it. Smoothing stays alive
+                        through fast movement while the mid range keeps only a fraction of the zone — one
+                        knob sets where the filter is fully out of the way, the other where it is still
+                        partly on</div>
+                </div>
+                <div class="ref-card">
+                    <div class="ref-problem"><span class="ref-arrow">→</span> The knee is at the right speed
+                        but the amount there is wrong?</div>
+                    <div class="ref-solution">That is what <strong>Zone At Knee Speed</strong> is for. It sets
+                        how much of the dead zone survives at Knee Speed, as a fraction. 0.5 is a plain
+                        straight-ish fall-off; raise it towards 0.9 to keep almost the whole zone up to that
+                        speed and then drop it sharply, lower it towards 0.1 to shed most of the zone early
+                        and trail the rest off gently</div>
                 </div>
                 <div class="ref-card">
                     <div class="ref-problem"><span class="ref-arrow">→</span> Cursor lags behind?</div>
@@ -1038,7 +1056,8 @@
         const sliders = {
             mdz: { el: $('s-mdz'), val: $('v-mdz'), key: 'maxDeadZone' },
             fst: { el: $('s-fst'), val: $('v-fst'), key: 'fullSpeedThreshold' },
-            hsp: { el: $('s-hsp'), val: $('v-hsp'), key: 'halfSpeedThreshold' },
+            kns: { el: $('s-kns'), val: $('v-kns'), key: 'kneeSpeed' },
+            zak: { el: $('s-zak'), val: $('v-zak'), key: 'zoneAtKneeSpeed' },
             vsm: { el: $('s-vsm'), val: $('v-vsm'), key: 'velocitySmoothMs' },
             osm: { el: $('s-osm'), val: $('v-osm'), key: 'outputSmoothMs' },
             led: { el: $('s-led'), val: $('v-led'), key: 'lead' },
@@ -1050,7 +1069,8 @@
             return {
                 maxDeadZone: parseFloat(sliders.mdz.el.value),
                 fullSpeedThreshold: parseFloat(sliders.fst.el.value),
-                halfSpeedThreshold: parseFloat(sliders.hsp.el.value),
+                kneeSpeed: parseFloat(sliders.kns.el.value),
+                zoneAtKneeSpeed: parseFloat(sliders.zak.el.value),
                 velocitySmoothMs: parseFloat(sliders.vsm.el.value),
                 outputSmoothMs: parseFloat(sliders.osm.el.value),
                 lead: parseFloat(sliders.led.el.value),
@@ -1068,7 +1088,7 @@
                 fullSpeedThreshold: p.fullSpeedThreshold * 2, // v1 measured gross speed, which runs higher
                 // v1 exposed the raw exponent; derive the one the current half speed asks for so the
                 // two trails are compared on the same decay shape.
-                curve: curveFor(p.halfSpeedThreshold, p.fullSpeedThreshold),
+                curve: curveFor(p.kneeSpeed, p.zoneAtKneeSpeed, p.fullSpeedThreshold),
                 speedSmooth: 0.5,
                 smoothFactor: 0.8,
                 prediction: 0
@@ -1127,16 +1147,17 @@
             // v2 drives the dead zone from net speed, which is lower than the gross speed v1 used.
             let base;
             switch (play) {
-                // Half speeds are the exponents these presets used to carry, expressed as a speed:
-                // jump 0.6, stream 1.2, allround 1.0, each solved against its own threshold.
+                // Knees are the exponents these presets used to carry, expressed as a speed at the
+                // half-way fraction: jump 0.6, stream 1.2, allround 1.0, each solved against its own
+                // threshold. The presets stay on 0.5 — the fraction is there to be tuned by hand.
                 case 'jump':
-                    base = { mdz: 3, fst: 4, hsp: 1.3, vsm: 4, osm: 0, led: 0.75, chr: 0.75 };
+                    base = { mdz: 3, fst: 4, kns: 1.3, zak: 0.5, vsm: 4, osm: 0, led: 0.75, chr: 0.75 };
                     break;
                 case 'stream':
-                    base = { mdz: 5, fst: 8, hsp: 4.5, vsm: 6, osm: 0, led: 0.5, chr: 0.6 };
+                    base = { mdz: 5, fst: 8, kns: 4.5, zak: 0.5, vsm: 6, osm: 0, led: 0.5, chr: 0.6 };
                     break;
                 default: // allround
-                    base = { mdz: 4, fst: 6, hsp: 3.0, vsm: 4, osm: 0, led: 0.75, chr: 0.75 };
+                    base = { mdz: 4, fst: 6, kns: 3.0, zak: 0.5, vsm: 4, osm: 0, led: 0.75, chr: 0.75 };
             }
 
             // Scale by area and chatter
@@ -1144,7 +1165,9 @@
                 mdz: clamp(round1(base.mdz * areaScale * chatterMul), 0, 20),
                 fst: clamp(round1(base.fst * areaScale), 0.5, 50),
                 // A speed, so it scales with area exactly like the threshold it sits under.
-                hsp: clamp(round1(base.hsp * areaScale), 0.1, 25),
+                kns: clamp(round1(base.kns * areaScale), 0.1, 25),
+                // A fraction, so area does not enter into it.
+                zak: clamp(round2(base.zak), 0.01, 0.99),
                 vsm: clamp(round1(base.vsm), 0, 20),
                 osm: clamp(round1(base.osm), 0, 8),
                 led: clamp(round2(base.led), 0, 1),
@@ -1154,7 +1177,8 @@
             // Animate sliders
             setSlider('mdz', result.mdz);
             setSlider('fst', result.fst);
-            setSlider('hsp', result.hsp);
+            setSlider('kns', result.kns);
+            setSlider('zak', result.zak);
             setSlider('vsm', result.vsm);
             setSlider('osm', result.osm);
             setSlider('led', result.led);
@@ -1187,7 +1211,8 @@
             const text = [
                 `Max Dead Zone: ${p.maxDeadZone}`,
                 `Full Speed Threshold: ${p.fullSpeedThreshold}`,
-                `Half Speed Threshold: ${p.halfSpeedThreshold}`,
+                `Knee Speed: ${p.kneeSpeed}`,
+                `Zone At Knee Speed: ${p.zoneAtKneeSpeed}`,
                 `Velocity Smooth: ${p.velocitySmoothMs}`,
                 `Output Smooth: ${p.outputSmoothMs}`,
                 `Lead: ${p.lead}`,
@@ -1235,13 +1260,14 @@
         const RESET_THRESHOLD_MS = 100, MIN_DELTA_MS = 1e-3, EPSILON = 1e-6;
         const MIN_CURVE = 0.01, MAX_CURVE = 64, COHERENCE_WINDOW_MS = 25;
 
-        /* Decay exponent placing the dead zone at half of Max Dead Zone when net speed reaches the
-           half speed, and at zero when it reaches the full-speed threshold: solving
-           1 - (h/T)^C = 0.5 gives C = ln(0.5)/ln(h/T). Both ends of the ratio send C to an infinity,
-           so it is clamped strictly inside (0,1) first. Mirrors VelocityGuardCore.CurveFor. */
-        function curveFor(halfSpeed, threshold) {
-            const ratio = clamp(halfSpeed / Math.max(threshold, EPSILON), 0.01, 0.99);
-            return clamp(Math.log(0.5) / Math.log(ratio), MIN_CURVE, MAX_CURVE);
+        /* Decay exponent placing the dead zone at zoneAtKnee of Max Dead Zone when net speed reaches
+           the knee, and at zero when it reaches the full-speed threshold: solving 1 - (k/T)^C = z
+           gives C = ln(1 - z)/ln(k/T). Both arguments are clamped strictly inside (0,1) as fractions
+           first, since each end sends C to an infinity. Mirrors VelocityGuardCore.CurveFor. */
+        function curveFor(kneeSpeed, zoneAtKnee, threshold) {
+            const ratio = clamp(kneeSpeed / Math.max(threshold, EPSILON), 0.01, 0.99);
+            const remaining = clamp(zoneAtKnee, 0.01, 0.99);
+            return clamp(Math.log(1 - remaining) / Math.log(ratio), MIN_CURVE, MAX_CURVE);
         }
 
         const hyp = (x, y) => Math.hypot(x, y);
@@ -1290,7 +1316,7 @@
                 // 2 px correction from 2 px of chatter, but direction can.
                 const maxDz = Math.max(p.maxDeadZone, 0);
                 const t = clamp(netSpeed / Math.max(p.fullSpeedThreshold, EPSILON), 0, 1);
-                const shaped = Math.pow(t, curveFor(p.halfSpeedThreshold, p.fullSpeedThreshold));
+                const shaped = Math.pow(t, curveFor(p.kneeSpeed, p.zoneAtKneeSpeed, p.fullSpeedThreshold));
                 const cohCubed = coherence * coherence * coherence;
                 const relief = 1 - clamp(p.coherenceRelief, 0, 1) * cohCubed;
                 const deadZone = maxDz * (1 - shaped) * Math.max(relief, 0);
