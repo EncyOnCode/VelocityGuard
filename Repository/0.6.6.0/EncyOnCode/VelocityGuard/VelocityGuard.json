@@ -2,12 +2,12 @@
     "Name": "Velocity Guard",
     "Owner": "EncyOnCode",
     "Description": "Velocity-Adaptive Dead Zone filter for OpenTabletDriver. Suppresses pen chatter at rest while passing fast movements through with zero latency.",
-    "PluginVersion": "2.2.0",
+    "PluginVersion": "2.3.0",
     "SupportedDriverVersion": "0.6.6.0",
     "RepositoryUrl": "https://github.com/EncyOnCode/VelocityGuard",
-    "DownloadUrl": "https://github.com/EncyOnCode/VelocityGuard/releases/download/2.2.0/VelocityGuard.zip",
+    "DownloadUrl": "https://github.com/EncyOnCode/VelocityGuard/releases/download/2.3.0/VelocityGuard.zip",
     "CompressionFormat": "zip",
-    "SHA256": "f1e4dc801add55ce17a057a66799fac584f166f887a06dcf53f1db735d2ebd30",
+    "SHA256": "a8b7bd96287e7fc4bd9cfcab03967ce1c4a3171acc5c8b8e0da79bd388637acc",
     "WikiUrl": "https://encyoncode.github.io/VelocityGuard/",
     "LicenseIdentifier": "GPL-3.0-only"
 }
