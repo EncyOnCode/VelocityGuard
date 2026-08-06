@@ -39,6 +39,7 @@ public sealed class VelocityGuardCore
     private const float MinDeltaMs = 1e-3f;
     private const float Epsilon = 1e-6f;
     private const float MinCurve = 0.01f;
+    private const float MaxCurve = 64f;
 
     // ─── State ──────────────────────────────────────────────────────────────
 
@@ -119,7 +120,7 @@ public sealed class VelocityGuardCore
         float maxDeadZone = MathF.Max(settings.MaxDeadZone, 0f);
 
         float t = Math.Clamp(NetSpeed / threshold, 0f, 1f);
-        float shaped = MathF.Pow(t, MathF.Max(settings.Curve, MinCurve));
+        float shaped = MathF.Pow(t, CurveFor(settings.HalfSpeedThreshold, threshold));
 
         // Coherence relief: directed movement opens the zone even when it is far too slow to do so
         // on speed alone. Speed and amplitude cannot tell a deliberate 2 px correction from 2 px of
@@ -194,6 +195,24 @@ public sealed class VelocityGuardCore
         Coherence = 0f;
         DeadZone = 0f;
         return input;
+    }
+
+    /// <summary>
+    /// Decay exponent placing the dead zone at half of <see cref="VelocityGuardSettings.MaxDeadZone"/>
+    /// when net speed reaches <paramref name="halfSpeed"/>, and at zero when it reaches
+    /// <paramref name="threshold"/>. Solving <c>1 - (h/T)^C = 0.5</c> gives <c>C = ln(0.5)/ln(h/T)</c>.
+    /// </summary>
+    /// <remarks>
+    /// This is a reparameterisation of v2's raw <c>Curve</c> exponent, not a change to the shape it can
+    /// produce. The exponent alone could not be tuned usefully: keeping smoothing alive through fast
+    /// streaming while leaving mid-speed aim light needs values around 3 and above, which are opaque as
+    /// numbers and sat outside the old slider's range. Both endpoints of the ratio send the exponent to
+    /// an infinity, so it is clamped strictly inside (0,1) before the logarithm.
+    /// </remarks>
+    private static float CurveFor(float halfSpeed, float threshold)
+    {
+        float ratio = Math.Clamp(halfSpeed / threshold, 0.01f, 0.99f);
+        return Math.Clamp(MathF.Log(0.5f) / MathF.Log(ratio), MinCurve, MaxCurve);
     }
 
     /// <summary>

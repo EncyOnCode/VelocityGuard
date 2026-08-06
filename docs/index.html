@@ -770,7 +770,7 @@
             <div class="logo">
                 <span class="logo-mark">▸</span>
                 <span>VELOCITY<span class="logo-accent">GUARD</span></span>
-                <span class="logo-ver">v2.0</span>
+                <span class="logo-ver">v2.2</span>
             </div>
             <nav>
                 <a href="#calculator">Calculator</a>
@@ -859,11 +859,11 @@
 
                     <div class="slider-group">
                         <div class="slider-header">
-                            <label>Curve</label>
-                            <span class="slider-value" id="v-crv">1.0</span>
-                            <span class="slider-unit"></span>
+                            <label>Half Speed Threshold</label>
+                            <span class="slider-value" id="v-hsp">3.0</span>
+                            <span class="slider-unit">px/ms</span>
                         </div>
-                        <input type="range" id="s-crv" min="0.1" max="3" step="0.1" value="1">
+                        <input type="range" id="s-hsp" min="0.1" max="25" step="0.1" value="3">
                     </div>
 
                     <div class="slider-group">
@@ -962,7 +962,18 @@
                 </div>
                 <div class="ref-card">
                     <div class="ref-problem"><span class="ref-arrow">→</span> Want snappier response?</div>
-                    <div class="ref-solution">Decrease <strong>Curve</strong> to 0.4–0.7</div>
+                    <div class="ref-solution">Decrease <strong>Half Speed Threshold</strong> to around a
+                        quarter of your Full Speed Threshold — the zone then collapses early instead of
+                        holding on into mid-speed movement</div>
+                </div>
+                <div class="ref-card">
+                    <div class="ref-problem"><span class="ref-arrow">→</span> Streams get no smoothing at all,
+                        but raising the threshold over-smooths normal aim?</div>
+                    <div class="ref-solution">Raise <strong>Full Speed Threshold</strong> past your stream
+                        speed, then raise <strong>Half Speed Threshold</strong> close behind it. Smoothing
+                        stays alive through fast movement while the mid range keeps only a fraction of the
+                        zone — one knob sets where the filter is at half strength, the other where it is
+                        fully out of the way</div>
                 </div>
                 <div class="ref-card">
                     <div class="ref-problem"><span class="ref-arrow">→</span> Cursor lags behind?</div>
@@ -1027,7 +1038,7 @@
         const sliders = {
             mdz: { el: $('s-mdz'), val: $('v-mdz'), key: 'maxDeadZone' },
             fst: { el: $('s-fst'), val: $('v-fst'), key: 'fullSpeedThreshold' },
-            crv: { el: $('s-crv'), val: $('v-crv'), key: 'curve' },
+            hsp: { el: $('s-hsp'), val: $('v-hsp'), key: 'halfSpeedThreshold' },
             vsm: { el: $('s-vsm'), val: $('v-vsm'), key: 'velocitySmoothMs' },
             osm: { el: $('s-osm'), val: $('v-osm'), key: 'outputSmoothMs' },
             led: { el: $('s-led'), val: $('v-led'), key: 'lead' },
@@ -1039,7 +1050,7 @@
             return {
                 maxDeadZone: parseFloat(sliders.mdz.el.value),
                 fullSpeedThreshold: parseFloat(sliders.fst.el.value),
-                curve: parseFloat(sliders.crv.el.value),
+                halfSpeedThreshold: parseFloat(sliders.hsp.el.value),
                 velocitySmoothMs: parseFloat(sliders.vsm.el.value),
                 outputSmoothMs: parseFloat(sliders.osm.el.value),
                 lead: parseFloat(sliders.led.el.value),
@@ -1055,7 +1066,9 @@
             return {
                 maxDeadZone: p.maxDeadZone,
                 fullSpeedThreshold: p.fullSpeedThreshold * 2, // v1 measured gross speed, which runs higher
-                curve: p.curve,
+                // v1 exposed the raw exponent; derive the one the current half speed asks for so the
+                // two trails are compared on the same decay shape.
+                curve: curveFor(p.halfSpeedThreshold, p.fullSpeedThreshold),
                 speedSmooth: 0.5,
                 smoothFactor: 0.8,
                 prediction: 0
@@ -1114,21 +1127,24 @@
             // v2 drives the dead zone from net speed, which is lower than the gross speed v1 used.
             let base;
             switch (play) {
+                // Half speeds are the exponents these presets used to carry, expressed as a speed:
+                // jump 0.6, stream 1.2, allround 1.0, each solved against its own threshold.
                 case 'jump':
-                    base = { mdz: 3, fst: 4, crv: 0.6, vsm: 4, osm: 0, led: 0.75, chr: 0.75 };
+                    base = { mdz: 3, fst: 4, hsp: 1.3, vsm: 4, osm: 0, led: 0.75, chr: 0.75 };
                     break;
                 case 'stream':
-                    base = { mdz: 5, fst: 8, crv: 1.2, vsm: 6, osm: 0, led: 0.5, chr: 0.6 };
+                    base = { mdz: 5, fst: 8, hsp: 4.5, vsm: 6, osm: 0, led: 0.5, chr: 0.6 };
                     break;
                 default: // allround
-                    base = { mdz: 4, fst: 6, crv: 1.0, vsm: 4, osm: 0, led: 0.75, chr: 0.75 };
+                    base = { mdz: 4, fst: 6, hsp: 3.0, vsm: 4, osm: 0, led: 0.75, chr: 0.75 };
             }
 
             // Scale by area and chatter
             const result = {
                 mdz: clamp(round1(base.mdz * areaScale * chatterMul), 0, 20),
                 fst: clamp(round1(base.fst * areaScale), 0.5, 50),
-                crv: clamp(round1(base.crv), 0.1, 3),
+                // A speed, so it scales with area exactly like the threshold it sits under.
+                hsp: clamp(round1(base.hsp * areaScale), 0.1, 25),
                 vsm: clamp(round1(base.vsm), 0, 20),
                 osm: clamp(round1(base.osm), 0, 8),
                 led: clamp(round2(base.led), 0, 1),
@@ -1138,7 +1154,7 @@
             // Animate sliders
             setSlider('mdz', result.mdz);
             setSlider('fst', result.fst);
-            setSlider('crv', result.crv);
+            setSlider('hsp', result.hsp);
             setSlider('vsm', result.vsm);
             setSlider('osm', result.osm);
             setSlider('led', result.led);
@@ -1171,7 +1187,7 @@
             const text = [
                 `Max Dead Zone: ${p.maxDeadZone}`,
                 `Full Speed Threshold: ${p.fullSpeedThreshold}`,
-                `Curve: ${p.curve}`,
+                `Half Speed Threshold: ${p.halfSpeedThreshold}`,
                 `Velocity Smooth: ${p.velocitySmoothMs}`,
                 `Output Smooth: ${p.outputSmoothMs}`,
                 `Lead: ${p.lead}`,
@@ -1217,7 +1233,16 @@
 
         /* ── Filter cores (must mirror VelocityGuardCore.cs) ─────────────── */
         const RESET_THRESHOLD_MS = 100, MIN_DELTA_MS = 1e-3, EPSILON = 1e-6;
-        const MIN_CURVE = 0.01, COHERENCE_WINDOW_MS = 25;
+        const MIN_CURVE = 0.01, MAX_CURVE = 64, COHERENCE_WINDOW_MS = 25;
+
+        /* Decay exponent placing the dead zone at half of Max Dead Zone when net speed reaches the
+           half speed, and at zero when it reaches the full-speed threshold: solving
+           1 - (h/T)^C = 0.5 gives C = ln(0.5)/ln(h/T). Both ends of the ratio send C to an infinity,
+           so it is clamped strictly inside (0,1) first. Mirrors VelocityGuardCore.CurveFor. */
+        function curveFor(halfSpeed, threshold) {
+            const ratio = clamp(halfSpeed / Math.max(threshold, EPSILON), 0.01, 0.99);
+            return clamp(Math.log(0.5) / Math.log(ratio), MIN_CURVE, MAX_CURVE);
+        }
 
         const hyp = (x, y) => Math.hypot(x, y);
         const timeAlpha = (dt, tau) => (tau <= MIN_DELTA_MS ? 1 : 1 - Math.exp(-dt / tau));
@@ -1265,7 +1290,7 @@
                 // 2 px correction from 2 px of chatter, but direction can.
                 const maxDz = Math.max(p.maxDeadZone, 0);
                 const t = clamp(netSpeed / Math.max(p.fullSpeedThreshold, EPSILON), 0, 1);
-                const shaped = Math.pow(t, Math.max(p.curve, MIN_CURVE));
+                const shaped = Math.pow(t, curveFor(p.halfSpeedThreshold, p.fullSpeedThreshold));
                 const cohCubed = coherence * coherence * coherence;
                 const relief = 1 - clamp(p.coherenceRelief, 0, 1) * cohCubed;
                 const deadZone = maxDz * (1 - shaped) * Math.max(relief, 0);

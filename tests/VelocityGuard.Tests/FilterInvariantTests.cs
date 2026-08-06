@@ -131,7 +131,9 @@ public class FilterInvariantTests
             {
                 MaxDeadZone = prng.Next(0f, 20f),
                 FullSpeedThreshold = prng.Next(0.5f, 50f),
-                Curve = prng.Next(0.1f, 3f),
+                // Deliberately past the slider's 0.1–25: a half speed at or above the full-speed
+                // threshold, or at zero, both drive the derived exponent to an infinity if unclamped.
+                HalfSpeedThreshold = prng.Next(0f, 60f),
                 VelocitySmoothMs = prng.Next(0f, 20f),
                 OutputSmoothMs = prng.Next(0f, 8f),
                 Lead = prng.Next(0f, 1f)
@@ -265,5 +267,63 @@ public class FilterInvariantTests
 
         // Measured across seeds: v1 travels 4.40-5.11x the intended distance here, v2 1.16-1.21x.
         Assert.InRange(excess, 0f, 1.6f);
+    }
+
+    // ── The knob must mean literally what its name says ──
+    // Half Speed Threshold replaced the raw Curve exponent so the number could be read directly off
+    // a movement speed. That only holds if the zone really is half-height at exactly that speed.
+    [Theory]
+    [InlineData(1f)]
+    [InlineData(3f)]
+    [InlineData(5f)]
+    [InlineData(9f)]
+    public void AtHalfSpeedThreshold_DeadZoneIsHalfOfMax(float halfSpeed)
+    {
+        var settings = Signals.Baseline;
+        settings.MaxDeadZone = 4f;
+        settings.FullSpeedThreshold = 10f;
+        settings.HalfSpeedThreshold = halfSpeed;
+        settings.CoherenceRelief = 0f; // steady motion is fully coherent; relief would scale the result
+
+        Assert.Equal(2f, SteadyDeadZone(in settings, halfSpeed), 2);
+    }
+
+    // Raising the half speed must hold the zone open longer at every speed below the threshold —
+    // this is the lever for keeping smoothing alive through fast movement without over-smoothing
+    // the mid range, which a single "fully off" threshold could not offer.
+    [Fact]
+    public void RaisingHalfSpeed_HoldsTheZoneOpenLongerButStillPassesThroughAtFullSpeed()
+    {
+        var settings = Signals.Baseline;
+        settings.MaxDeadZone = 4f;
+        settings.FullSpeedThreshold = 10f;
+        settings.CoherenceRelief = 0f;
+
+        float previous = -1f;
+        foreach (float halfSpeed in new[] { 1f, 2f, 3f, 5f, 7f, 9f })
+        {
+            settings.HalfSpeedThreshold = halfSpeed;
+
+            float zone = SteadyDeadZone(in settings, 6f);
+            Assert.True(zone > previous, $"zone at 6 px/ms did not grow at half speed {halfSpeed}");
+            previous = zone;
+
+            // Whatever the shape, the zone still reaches exactly zero at the threshold, which is
+            // what keeps fast movement bit-exact.
+            Assert.Equal(0f, SteadyDeadZone(in settings, settings.FullSpeedThreshold));
+        }
+    }
+
+    /// <summary>Dead-zone radius once the velocity estimator has settled on a steady straight-line speed.</summary>
+    private static float SteadyDeadZone(in VelocityGuardSettings settings, float pxPerMs)
+    {
+        var core = new VelocityGuardCore();
+        const float dtMs = 4f;
+        float step = pxPerMs * dtMs;
+
+        for (int i = 0; i < 400; i++)
+            core.Filter(new Vector2(500f + i * step, 500f), dtMs, in settings);
+
+        return core.DeadZone;
     }
 }

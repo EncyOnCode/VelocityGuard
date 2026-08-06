@@ -24,6 +24,10 @@ public class VelocityGuard : IPositionedPipelineElement<IDeviceReport>
     // from v1: SpeedSmoothAlpha, MinSmoothFactor and PredictionStrength all changed both units
     // and meaning, so reusing their names would have silently reinterpreted saved values rather
     // than resetting them. v1 settings do not carry over.
+    //
+    // v2.2 renames Curve to HalfSpeedThreshold for the same reason: it is the same decay shape
+    // expressed as a speed in px/ms instead of a raw exponent, so a saved Curve of 0.6 would have
+    // been read as 0.6 px/ms — a wildly different filter. That setting resets rather than carries.
 
     /// <summary>Dead-zone radius (screen pixels) when the pen shows no net movement.</summary>
     [SliderProperty("Max Dead Zone", 0f, 20f, 4f), Unit("px")]
@@ -33,9 +37,9 @@ public class VelocityGuard : IPositionedPipelineElement<IDeviceReport>
     [SliderProperty("Full Speed Threshold", 0.5f, 50f, 6f), Unit("px/ms")]
     public float FullSpeedThreshold { get; set; } = 6f;
 
-    /// <summary>Dead-zone decay shape. &lt;1 collapses earlier, &gt;1 holds the zone longer.</summary>
-    [SliderProperty("Curve", 0.1f, 3f, 1f)]
-    public float Curve { get; set; } = 1f;
+    /// <summary>Net speed at which the dead zone is half of Max Dead Zone. Shapes the decay up to the threshold.</summary>
+    [SliderProperty("Half Speed Threshold", 0.1f, 25f, 3f), Unit("px/ms")]
+    public float HalfSpeedThreshold { get; set; } = 3f;
 
     /// <summary>Time constant of the velocity estimator. Higher reacts more slowly but more steadily.</summary>
     [SliderProperty("Velocity Smooth", 0f, 20f, 4f), Unit("ms")]
@@ -102,7 +106,7 @@ public class VelocityGuard : IPositionedPipelineElement<IDeviceReport>
         {
             MaxDeadZone = MaxDeadZone,
             FullSpeedThreshold = FullSpeedThreshold,
-            Curve = Curve,
+            HalfSpeedThreshold = HalfSpeedThreshold,
             VelocitySmoothMs = VelocitySmoothMs,
             OutputSmoothMs = OutputSmoothMs,
             Lead = Lead,

@@ -13,8 +13,13 @@ public struct VelocityGuardSettings
     /// <summary>Net speed (px/ms) at which the dead zone reaches zero and output becomes raw passthrough.</summary>
     public float FullSpeedThreshold;
 
-    /// <summary>Dead-zone decay shape. &lt;1 collapses earlier, &gt;1 holds the zone longer.</summary>
-    public float Curve;
+    /// <summary>
+    /// Net speed (px/ms) at which the dead zone is half of <see cref="MaxDeadZone"/>. Sets the shape of
+    /// the decay between rest and <see cref="FullSpeedThreshold"/>: values near the threshold keep
+    /// smoothing alive through fast movement, low values collapse the zone early. Clamped into
+    /// (0, FullSpeedThreshold) internally.
+    /// </summary>
+    public float HalfSpeedThreshold;
 
     /// <summary>Time constant (ms) of the velocity estimator. Higher = steadier speed, slower to react.</summary>
     public float VelocitySmoothMs;
@@ -48,12 +53,16 @@ public struct VelocityGuardSettings
     /// <see cref="Lead"/> defaults on because at 0.75 it restores v1-comparable tracking lag while
     /// keeping v2's smoothness; <see cref="OutputSmoothMs"/> defaults off for the reason above.
     /// </para>
+    /// <para>
+    /// <see cref="HalfSpeedThreshold"/> defaults to half of <see cref="FullSpeedThreshold"/>, which is
+    /// exactly the linear decay v2.0–2.1 produced at <c>Curve = 1</c>.
+    /// </para>
     /// </summary>
     public static VelocityGuardSettings Default => new()
     {
         MaxDeadZone = 4f,
         FullSpeedThreshold = 6f,
-        Curve = 1f,
+        HalfSpeedThreshold = 3f,
         VelocitySmoothMs = 4f,
         OutputSmoothMs = 0f,
         Lead = 0.75f,
