@@ -90,7 +90,7 @@ MANIFEST=$(printf '%s\n' "$MANIFEST_LIST" | head -1)
 
 # ── Test and build ───────────────────────────────────────────────────────────
 echo "==> Running filter invariants"
-# The test host targets net8.0; roll forward so it runs on whatever runtime is installed.
+# The test host targets net10.0; roll forward so it runs on whatever runtime is installed.
 DOTNET_ROLL_FORWARD=LatestMajor dotnet test tests/VelocityGuard.Tests/VelocityGuard.Tests.csproj -c Release
 
 echo "==> Building plugin"

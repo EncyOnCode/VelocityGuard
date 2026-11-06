@@ -86,8 +86,13 @@ public class VelocityGuard : IPositionedPipelineElement<IDeviceReport>
 
     // ─── Pipeline entry point ───────────────────────────────────────────────
 
-    public void Consume(IDeviceReport report)
+    // 0.6.8 annotates the interface parameter as nullable while Emit stays non-nullable;
+    // there is nothing to filter or forward in a null report, so drop it.
+    public void Consume(IDeviceReport? report)
     {
+        if (report is null)
+            return;
+
         if (report is ITabletReport tabletReport)
             tabletReport.Position = Filter(tabletReport.Position);
 
