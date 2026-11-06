@@ -144,6 +144,8 @@ Worth being straight about what this does and does not buy:
 
 ## Installation
 
+Requires **OpenTabletDriver 0.6.8** or newer. Older drivers are offered v2.3.0, the last release built for them.
+
 **Via the plugin manager:** Plugins → Open Plugin Manager → File → Use alternate source, with owner `EncyOnCode`, name `VelocityGuard`, ref `main`.
 
 **Manually:**

@@ -566,6 +566,17 @@
             color: var(--text);
         }
 
+        .install-note {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .install-note strong {
+            color: var(--text);
+        }
+
         .otd-field {
             display: flex;
             align-items: center;
@@ -770,7 +781,7 @@
             <div class="logo">
                 <span class="logo-mark">▸</span>
                 <span>VELOCITY<span class="logo-accent">GUARD</span></span>
-                <span class="logo-ver">v2.3</span>
+                <span class="logo-ver">v2.4</span>
             </div>
             <nav>
                 <a href="#calculator">Calculator</a>
@@ -1016,6 +1027,7 @@
             <div class="section-label">QUICK INSTALL</div>
             <div class="panel install-panel">
                 <div class="panel-title">OTD Repository Source</div>
+                <p class="install-note">Requires <strong>OpenTabletDriver 0.6.8</strong> or newer. Older drivers are offered v2.3.0.</p>
                 <ol class="install-steps">
                     <li>Open <strong>OpenTabletDriver</strong></li>
                     <li>Go to <strong>Plugins</strong> → <strong>Open Plugin Manager</strong></li>
